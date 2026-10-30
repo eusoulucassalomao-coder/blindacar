@@ -8,8 +8,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
 :root{
   --bg:#ecfdf5; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#fff;
@@ -27,11 +27,11 @@ svg{display:block}
 
 /* Mapa */
 #map{position:fixed;inset:0;z-index:0;background:#eef2f1}
-.leaflet-bottom{bottom:var(--sheet-h,0px)!important}
-.leaflet-control-attribution{font:500 9px var(--font)!important;background:rgba(255,255,255,.8)!important;color:var(--muted)!important;border-radius:8px 0 0 0}
-.leaflet-control-attribution a{color:var(--muted)!important}
-.leaflet-popup-content-wrapper{border-radius:16px;box-shadow:var(--sh)}
-.leaflet-popup-content{font:500 13px var(--font);margin:12px 14px}
+.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{bottom:var(--sheet-h,0px)!important}
+.maplibregl-ctrl-attrib{font:500 9px var(--font)!important;background:rgba(255,255,255,.85)!important}
+.maplibregl-ctrl-attrib a{color:var(--muted)!important}
+.maplibregl-popup-content{border-radius:16px;box-shadow:var(--sh);font:500 13px var(--font);padding:12px 14px}
+.maplibregl-marker{cursor:pointer}
 .pop b{display:block;font-size:14px;margin-bottom:2px}
 .pop small{color:var(--muted)}
 .pop button{margin-top:10px;border:0;border-radius:10px;padding:8px 12px;background:var(--gxl);color:var(--g3);font:700 12px var(--font);cursor:pointer}
@@ -41,6 +41,13 @@ svg{display:block}
 .mk{--c:var(--g2);width:36px;height:36px;border-radius:50%;background:#fff;border:3px solid var(--c);color:var(--c);display:grid;place-items:center;box-shadow:0 6px 14px -2px rgba(15,23,42,.35)}
 .mk.p{--c:var(--police)} .mk.b{--c:var(--ctrl)} .mk.a{--c:var(--crash)}
 .me{position:relative;width:22px;height:22px;border-radius:50%;background:var(--g2);border:4px solid #fff;box-shadow:0 4px 10px rgba(4,120,87,.5)}
+.me.dir{width:30px;height:30px;border:0;background:none;box-shadow:none}
+.me.dir::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cpath d='M15 2 26 27 15 21 4 27z' fill='%2310b981' stroke='%23fff' stroke-width='2.5' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;filter:drop-shadow(0 3px 5px rgba(4,120,87,.55))}
+.me.dir::after{inset:-10px}
+#view3d{font:800 13px var(--font)}
+/* Navegación: más mapa. El «próximo aviso» ya está arriba; la lista se puede abrir con la barra del panel */
+body.navigating .sheet .sum,body.navigating .sheet .segs{display:none}
+body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px)}
 .me::after{content:"";position:absolute;inset:-14px;border-radius:50%;background:rgba(16,185,129,.25);animation:ping 2s ease-out infinite}
 @keyframes ping{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.2);opacity:0}}
 
@@ -241,6 +248,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
     <div><div class="brand">Blinda<b>car</b></div><div class="st" id="stxt">Parado</div></div>
   </div>
   <div class="spacer"></div>
+  <button class="round" id="view3d" type="button" aria-label="Ver el mapa en 2D" hidden>2D</button>
   <button class="round" id="mute" type="button" aria-label="Activar o desactivar la voz"></button>
 </div>
 <button class="round" id="center" type="button" aria-label="Centrar en mi posición" data-ic="crosshair"></button>
@@ -289,6 +297,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
     <div class="alts" id="alts"></div>
     <details class="steps" id="steps"><summary>Paso a paso</summary><ol id="stepsList"></ol></details>
     <button class="btn" id="rStart" type="button" data-ic="navigation" data-s="20">Iniciar ruta</button>
+    <button class="btn ghost" id="rSim" type="button" style="margin-top:10px;padding:12px;font-size:14px">Ver simulación del recorrido</button>
   </div>
   <div class="sum">
     <div style="min-width:0">
@@ -433,17 +442,51 @@ function renderMute(){$('mute').innerHTML=svg(voiceOn?'vol':'volx',22);$('mute')
 $('mute').onclick=()=>{voiceOn=!voiceOn;store.set('rn_voice',voiceOn);renderMute();if(voiceOn)say('Voz activada')};
 renderMute();
 
-// ---------- Mapa ----------
-const map = L.map('map',{zoomControl:false,attributionControl:true}).setView([42.8125,-1.6458],14);
-L.tileLayer('https://api.maptiler.com/maps/basic-v2-light/{z}/{x}/{y}{r}.png?key='+MAPTILER_KEY,{maxZoom:19,
-  attribution:'© <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(map);
-const icon = (cls,ic)=>L.divIcon({className:'',html:`<div class="mk ${cls}">${svg(ic,18)}</div>`,iconSize:[36,36],iconAnchor:[18,18]});
-const meIcon = L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[22,22],iconAnchor:[11,11]});
+// ---------- Mapa (MapLibre GL: vectorial, con nombres de calles nítidos; gira e inclina en 3D) ----------
+// Misma clave pública de MapTiler; estilo vectorial "streets-v2" en lugar de imágenes planas
+const map = new maplibregl.Map({container:'map',style:'https://api.maptiler.com/maps/streets-v2/style.json?key='+MAPTILER_KEY,
+  center:[-1.6458,42.8125],zoom:14,maxPitch:70,attributionControl:false});
 // Rutas y búsqueda: Geoapify (plan gratuito con uso comercial; exige atribución)
-map.attributionControl.addAttribution('<a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>');
+map.addControl(new maplibregl.AttributionControl({compact:true,
+  customAttribution:'<a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>'}),'bottom-left');
+// La app trabaja con [lat,lng]; MapLibre con [lng,lat]
+const toLngLat = c => [c[1],c[0]];
+function boundsOf(pts){const b=new maplibregl.LngLatBounds(toLngLat(pts[0]),toLngLat(pts[0]));pts.forEach(p=>b.extend(toLngLat(p)));return b}
+if(location.hostname.endsWith('.test'))window.__map=map; // solo en el entorno de pruebas local
+let mapReady=false;const readyQ=[];
+function whenReady(fn){if(mapReady)fn();else readyQ.push(fn)}
+const EMPTY={type:'FeatureCollection',features:[]};
+map.on('load',()=>{
+  const layers=map.getStyle().layers||[];const firstSym=(layers.find(l=>l.type==='symbol')||{}).id;
+  // Edificios en 3D (si el estilo trae la capa de edificios), por debajo de los nombres
+  try{const bl=layers.find(l=>l['source-layer']==='building');
+    if(bl)map.addLayer({id:'b3d',type:'fill-extrusion',source:bl.source,'source-layer':'building',minzoom:15,
+      paint:{'fill-extrusion-color':'#dfe7e2','fill-extrusion-height':['coalesce',['get','render_height'],8],
+        'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],15,0,16,.8]}},firstSym)}catch(e){}
+  // Trazado de la ruta y círculos de avisos: debajo de los nombres de las calles, para que se sigan leyendo
+  map.addSource('route',{type:'geojson',data:EMPTY});map.addSource('halos',{type:'geojson',data:EMPTY});
+  const line=(id,k,paint)=>map.addLayer({id,type:'line',source:'route',filter:['==',['get','k'],k],layout:{'line-cap':'round','line-join':'round'},paint},firstSym);
+  line('r-alt','alt',{'line-color':'#94a3b8','line-width':['interpolate',['linear'],['zoom'],10,4,17,9],'line-opacity':.85});
+  line('r-casing','casing',{'line-color':'#ffffff','line-width':['interpolate',['linear'],['zoom'],10,8,17,16]});
+  line('r-done','done',{'line-color':'#94a3b8','line-width':['interpolate',['linear'],['zoom'],10,4,17,10]});
+  line('r-todo','todo',{'line-color':'#10b981','line-width':['interpolate',['linear'],['zoom'],10,4,17,10]});
+  map.addLayer({id:'halos',type:'circle',source:'halos',paint:{'circle-radius':25,'circle-color':'#34d399','circle-opacity':.22,
+    'circle-stroke-color':'#047857','circle-stroke-width':3,'circle-pitch-alignment':'map'}},firstSym);
+  map.on('click','r-alt',e=>{const f=e.features&&e.features[0];if(f)selectAlt(f.properties.i)});
+  map.on('mouseenter','r-alt',()=>{map.getCanvas().style.cursor='pointer'});map.on('mouseleave','r-alt',()=>{map.getCanvas().style.cursor=''});
+  // Nombres en español: el estilo de MapTiler pone primero el nombre en inglés (name:en)
+  layers.forEach(l=>{if(l.type!=='symbol')return;try{const tf=map.getLayoutProperty(l.id,'text-field');if(!tf)return;
+    const js=JSON.stringify(tf);if(js.includes('name:en'))map.setLayoutProperty(l.id,'text-field',JSON.parse(js.split('name:en').join('name:es')))}catch(e){}});
+  mapReady=true;readyQ.splice(0).forEach(f=>f());
+});
+// Marcadores HTML (mismo diseño que antes) y ventanas emergentes
+function mkEl(cls,ic){const d=document.createElement('div');d.className='mk '+cls;d.innerHTML=svg(ic,18);return d}
+let popup=null;
+function closePopup(){if(popup){popup.remove();popup=null}}
+function openPopup(lat,lng,node){closePopup();popup=new maplibregl.Popup({offset:22,closeButton:false,maxWidth:'260px'}).setLngLat([lng,lat]).setDOMContent(node).addTo(map)}
+function addMarker(lat,lng,el,popupFn){const m=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]).addTo(map);
+  if(popupFn)el.addEventListener('click',e=>{e.stopPropagation();openPopup(lat,lng,popupFn())});return m}
 let route = null;                                 // ruta activa (ver «Ruta» más abajo)
-const routeLayer = L.layerGroup().addTo(map);     // trazados
-const haloLayer = L.layerGroup().addTo(map);      // círculos verdes en los avisos que están en la ruta
 
 // Radares (con correcciones guardadas en este móvil)
 const fixes = store.get('rn_fixes',{});
@@ -456,9 +499,8 @@ async function loadRadars(){
   if(!radars.length)showBanner('empty');else if(bannerKind==='load'||bannerKind==='empty')hideBanner();
   drawRadars();renderList(true);
 }
-function radarBounds(){return radars.length?L.latLngBounds(radars.map(r=>[r.lat,r.lng])):null}
-function showPamplona(){follow=false;const b=radarBounds();
-  if(b)map.fitBounds(b,{paddingTopLeft:[24,200],paddingBottomRight:[24,(sheet.offsetHeight||260)+24],maxZoom:15});else map.setView([42.8125,-1.6458],13)}
+function showPamplona(){follow=false;
+  if(radars.length)fitPts(radars.map(r=>[r.lat,r.lng]),15);else map.easeTo({center:[-1.6458,42.8125],zoom:13,pitch:0,bearing:0})}
 
 // ---------- Aviso de estado sobre el mapa ----------
 let bannerKind=null, farSnooze=0;
@@ -472,29 +514,27 @@ function showBanner(k){const b=BANNERS[k];if(!b)return;bannerKind=k;$('bnIc').in
   $('bnT').textContent=b.t;$('bnD').textContent=b.d;$('bnBtn').textContent=b.b;$('banner').hidden=false}
 function hideBanner(){bannerKind=null;$('banner').hidden=true}
 $('bnBtn').onclick=()=>{const b=BANNERS[bannerKind];if(b)b.go()};
-const radarLayer = L.layerGroup().addTo(map);
-function drawRadars(){radarLayer.clearLayers();radars.forEach(r=>{
-  const m=L.marker([r.lat,r.lng],{icon:icon('r','gauge')}).addTo(radarLayer);
-  m.bindPopup(()=>{const d=document.createElement('div');d.className='pop';
+let radarMarkers=[];
+function drawRadars(){radarMarkers.forEach(m=>m.remove());radarMarkers=[];radars.forEach(r=>{
+  radarMarkers.push(addMarker(r.lat,r.lng,mkEl('r','gauge'),()=>{const d=document.createElement('div');d.className='pop';
     d.innerHTML=`<b>Radar fijo · ${r.lim} km/h</b>${esc(r.name)}<br><small>${r.fixed?'Posición corregida por ti':(r.verified?'Posición verificada':'Posición aproximada')}</small>`;
     const btn=document.createElement('button');btn.type='button';btn.textContent='Mover aquí (mi posición)';
     btn.onclick=()=>{if(!me){toast('Necesito tu posición primero');return}
       r.lat=me.lat;r.lng=me.lng;r.fixed=true;fixes[r.id]=[me.lat,me.lng];store.set('rn_fixes',fixes);drawRadars();toast('Radar movido a tu posición')};
-    d.appendChild(btn);return d});
+    d.appendChild(btn);return d}));
 });if(route)refreshRouteItems();}
 drawRadars();
 
 // ---------- Avisos de la comunidad ----------
-let reports = []; const reportLayer = L.layerGroup().addTo(map);
+let reports = [], reportMarkers = [];
 const isOwn = r => !!(r.uid && session && session.user && r.uid===session.user.id);
-function drawReports(){reportLayer.clearLayers();const now=Date.now();
+function drawReports(){reportMarkers.forEach(m=>m.remove());reportMarkers=[];const now=Date.now();
   reports=reports.filter(r=>now-r.ts<REPORT_TTL);
   reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
-    L.marker([r.lat,r.lng],{icon:icon(r.t,t.ic)}).addTo(reportLayer)
-     .bindPopup(()=>{const d=document.createElement('div');d.className='pop';
+    reportMarkers.push(addMarker(r.lat,r.lng,mkEl(r.t,t.ic),()=>{const d=document.createElement('div');d.className='pop';
        d.innerHTML=`<b>${t.label}</b><small>Avisado ${esc(repMeta(r))}</small>`;
        if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
-       return d})});
+       return d}))});
   if(route)refreshRouteItems();
   renderList(true);}
 function addReport(r){if(!r||!TYPES[r.t]||typeof r.lat!=='number'||typeof r.lng!=='number'||typeof r.ts!=='number')return;
@@ -523,7 +563,7 @@ setInterval(pull,20000);setInterval(drawReports,30000);
 async function deleteReport(id){
   const {data,error}=await sb.from('reports').delete().eq('id',id).select('id');
   if(error||!data||!data.length){toast('No se pudo eliminar el aviso');return}
-  map.closePopup();removeReport(id);toast('Aviso eliminado');
+  closePopup();removeReport(id);toast('Aviso eliminado');
 }
 
 let lastSent = store.get('rn_last',0);
@@ -662,19 +702,32 @@ async function planRoute(dest,opts={}){
   route={dest,alts:alts.map(r=>({...r,geo:prepRoute(r.coords),n:0})),sel:0,nav,items:[],userAlong:0,offN:0,lastRe:Date.now()};
   route.userAlong=(origin&&!nav)?0:(me?project(route.alts[0].geo,me.lat,me.lng).along:0);
   drawRoute();refreshRouteItems();renderRouteBox();renderList(true);
-  if(nav){say('Ruta recalculada');return}
+  if(nav){sheet.classList.add('min');setSheetH();say('Ruta recalculada');if(follow&&shown)centerOn(shown[0],shown[1],navZoom(lastKmh),true);return}
   fitRoute();
 }
-function fitRoute(){if(!route)return;follow=false;const b=L.latLngBounds(route.alts[route.sel].coords);if(me)b.extend([me.lat,me.lng]);
-  map.fitBounds(b,{paddingTopLeft:[28,150],paddingBottomRight:[28,(sheet.offsetHeight||300)+24]})}
-function drawRoute(){routeLayer.clearLayers();if(!route)return;
-  route.alts.forEach((a,i)=>{if(i===route.sel)return;
-    L.polyline(a.coords,{color:'#94a3b8',weight:7,opacity:.8,lineCap:'round'}).on('click',()=>selectAlt(i)).addTo(routeLayer)});
-  const a=route.alts[route.sel];
-  L.polyline(a.coords,{color:'#fff',weight:13,interactive:false,lineCap:'round'}).addTo(routeLayer);
-  route.lineDone=L.polyline([],{color:'#94a3b8',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer); // ya recorrido
-  route.lineTodo=L.polyline(a.coords,{color:'#10b981',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer); // lo que falta
-  L.marker([route.dest.lat,route.dest.lng],{icon:icon('dest','flag'),interactive:false,zIndexOffset:500}).addTo(routeLayer)}
+// Encuadra puntos [lat,lng] en la parte visible (encima del panel), en vista plana
+function fitPts(pts,maxZoom){if(!pts.length)return;const wide=innerWidth>=700,sh=sheet.offsetHeight||300;
+  const bottom=wide?40:Math.max(40,Math.min(sh+24,innerHeight-260));
+  map.setPadding({top:0,bottom:0,left:0,right:0}); // la cámara de conducción deja un margen que falsearía el cálculo
+  const cam=map.cameraForBounds(boundsOf(pts),{padding:{top:150,bottom,left:28,right:wide?90:28},maxZoom:maxZoom||17,bearing:0});
+  if(cam)map.easeTo({center:cam.center,zoom:cam.zoom,bearing:0,pitch:0,padding:{top:0,bottom:0,left:0,right:0},duration:700})}
+function fitRoute(){if(!route)return;follow=false;const pts=route.alts[route.sel].coords.slice();if(me)pts.push([me.lat,me.lng]);fitPts(pts)}
+// Trazado: alternativas en gris, ruta elegida en verde con borde blanco; lo ya recorrido en gris
+const lineF=(k,coords,i)=>({type:'Feature',properties:{k,i:i??-1},geometry:{type:'LineString',coordinates:coords.map(toLngLat)}});
+function setRouteData(){whenReady(()=>{const src=map.getSource('route');if(!src)return;
+  if(!route){src.setData(EMPTY);return}
+  const a=route.alts[route.sel],f=[];
+  route.alts.forEach((x,i)=>{if(i!==route.sel)f.push(lineF('alt',x.coords,i))});
+  f.push(lineF('casing',a.coords));
+  const p=route.prog||{done:[],todo:a.coords};
+  if(p.done.length>1)f.push(lineF('done',p.done));if(p.todo.length>1)f.push(lineF('todo',p.todo));
+  src.setData({type:'FeatureCollection',features:f})})}
+let destMarker=null;
+function drawRoute(){if(destMarker){destMarker.remove();destMarker=null}
+  if(route){route.prog=null;const el=mkEl('dest','flag');el.style.cursor='default';destMarker=addMarker(route.dest.lat,route.dest.lng,el,null)}
+  setRouteData()}
+function setHalos(){whenReady(()=>{const src=map.getSource('halos');if(!src)return;
+  src.setData({type:'FeatureCollection',features:(route?route.items:[]).map(it=>({type:'Feature',properties:{},geometry:{type:'Point',coordinates:[it.ref.lng,it.ref.lat]}}))})})}
 function selectAlt(i){if(!route||i===route.sel||!route.alts[i])return;route.sel=i;
   route.userAlong=(origin&&!route.nav)||!me?0:project(route.alts[i].geo,me.lat,me.lng).along;
   drawRoute();refreshRouteItems();renderRouteBox();renderList(true);if(!route.nav)fitRoute()}
@@ -683,10 +736,9 @@ function onRoute(G){const out=[];
   radars.forEach(r=>{const p=project(G,r.lat,r.lng);if(p.off<=ROUTE_BUF_M)out.push({k:'rad',id:'r'+r.id,ref:r,along:p.along})});
   reports.forEach(r=>{if(!TYPES[r.t])return;const p=project(G,r.lat,r.lng);if(p.off<=ROUTE_BUF_M)out.push({k:'rep',id:'p'+r.id,ref:r,along:p.along})});
   return out.sort((a,b)=>a.along-b.along)}
-function refreshRouteItems(){haloLayer.clearLayers();if(!route)return;
+function refreshRouteItems(){if(!route){setHalos();return}
   route.alts.forEach((a,i)=>{const items=onRoute(a.geo);a.n=items.length;if(i===route.sel)route.items=items});
-  route.items.forEach(it=>L.circleMarker([it.ref.lat,it.ref.lng],{radius:25,color:'#047857',weight:3,fillColor:'#34d399',fillOpacity:.22,interactive:false,className:'halo'}).addTo(haloLayer));
-  renderRouteBox()}
+  setHalos();renderRouteBox()}
 function renderRouteBox(){
   document.body.classList.toggle('navigating',!!route&&route.nav);
   $('overview').hidden=!route;if(!route&&overview)setOverview(false,true);
@@ -704,7 +756,7 @@ function renderRouteBox(){
     b.setAttribute('aria-pressed',String(i===route.sel));
     b.innerHTML=`<b>${fmtDur(x.time)}</b><span>${fmtDist(x.distance)} · ${esc(x.label)}</span><span><i>${nAvisos(x.n)}</i></span>`;
     b.onclick=()=>selectAlt(i);box.appendChild(b)});
-  $('rStart').hidden=route.nav;$('rClose').setAttribute('aria-label',route.nav?'Terminar la ruta':'Cancelar la ruta');
+  $('rStart').hidden=route.nav;$('rSim').hidden=route.nav;$('rClose').setAttribute('aria-label',route.nav?'Terminar la ruta':'Cancelar la ruta');
   sheet.classList.toggle('planning',!route.nav);sheet.classList.add('routing');setSheetH()}
 function renderRouteList(){
   const ul=$('list');ul.innerHTML='';const from=route.userAlong||0;
@@ -717,23 +769,25 @@ function renderRouteList(){
     li.innerHTML=`<div class="tile ${isR?'':r.t}">${svg(isR?'gauge':t.ic,18)}</div><div class="tx"><div class="n">${esc(isR?r.name:t.label)}</div><div class="m">${esc(isR?'Radar fijo · '+r.lim+' km/h':repMeta(r))}</div></div><div class="dd">${fmtDist(Math.max(0,it.along-from))}</div>`;
     if(!isR&&isOwn(r)){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(r.id);li.appendChild(b)}
     ul.appendChild(li)})}
-function startSim(){ // GPS lejos del inicio de la ruta: se recorre el trayecto en simulación para poder verlo
+function startSim(){ // Solo cuando el usuario lo pide con «Ver simulación del recorrido»
   if(watchId!=null){try{navigator.geolocation.clearWatch(watchId)}catch(e){}watchId=null}
   mode='demo';$('dot').className='dot demo';$('stxt').textContent='Simulación de ruta';
-  route.nav=true;route.offN=0;follow=true;demoFollow(route.alts[route.sel].coords);runDemoTimer();
+  route.nav=true;route.offN=0;follow=true;sheet.classList.add('min');demoFollow(route.alts[route.sel].coords);runDemoTimer();
   const st=route.alts[route.sel].coords[0];onPos(st[0],st[1],0,Date.now());
-  toast('Estás lejos del inicio: simulando el recorrido');say('Simulación de ruta iniciada');renderRouteBox();renderList(true)}
+  toast('Simulación: el punto se mueve solo, no es tu GPS');say('Simulación de ruta iniciada');renderRouteBox();renderList(true)}
+$('rSim').onclick=()=>{if(route)startSim()};
 $('rStart').onclick=()=>{if(!route)return;
   const co=route.alts[route.sel].coords,st=co[0];
-  const near=!!me&&dist(me.lat,me.lng,st[0],st[1])<1500;
-  if(mode==='gps'&&!near){startSim();return}
-  if(mode==='gps'&&!me){toast('Esperando tu posición…');return}
-  route.nav=true;route.offN=0;follow=true;renderRouteBox();if(me)centerOn(me.lat,me.lng,17);
+  if(mode==='gps'&&!me){toast('Esperando tu posición GPS…');return}
+  // Navegación real: si estás lejos del punto de salida elegido, la ruta se recalcula desde tu posición (antes se simulaba sola)
+  if(mode==='gps'&&dist(me.lat,me.lng,st[0],st[1])>300){origin=null;$('qf').value='';$('qfx').hidden=true;
+    follow=true;overview&&setOverview(false,true);toast('Calculando la ruta desde tu posición');planRoute(route.dest,{nav:true});return}
+  route.nav=true;route.offN=0;follow=true;sheet.classList.add('min');renderRouteBox();if(me)centerOn(me.lat,me.lng,17,true);
   const n=route.items.length;say(n?`Ruta iniciada. ${n===1?'Un aviso':n+' avisos'} en el camino`:'Ruta iniciada. Sin avisos en el camino');
   if(mode==='demo'){demoFollow(co);runDemoTimer()}
   renderRouteBox();renderList(true)};
 $('rClose').onclick=()=>{const was=route&&route.nav;clearRoute();toast(was?'Ruta terminada':'Ruta cancelada')};
-function clearRoute(){planSeq++;route=null;routeLayer.clearLayers();haloLayer.clearLayers();
+function clearRoute(){planSeq++;route=null;drawRoute();setHalos();
   $('q').value='';$('qx').hidden=true;origin=null;$('qf').value='';$('qfx').hidden=true;renderRouteBox();renderList(true);if(mode==='demo')demoFollow(null)}
 // En cada posición GPS: próximo aviso de la ruta, aviso por voz, fuera de ruta y llegada
 function routeTick(lat,lng,now){
@@ -746,7 +800,8 @@ function routeTick(lat,lng,now){
       if(d<REPORT_ALERT_M&&again){alerted[it.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}}});
   if(route.nav){
     if(a.geo.len-p.along<ARRIVE_M&&p.off<OFF_ROUTE_M){say('Has llegado a tu destino');toast('Has llegado: '+route.dest.name);clearRoute();return null}
-    if(p.off>OFF_ROUTE_M){route.offN++;
+    route.off=p.off;
+    if(p.off>OFF_ROUTE_M&&!gpsPoor){route.offN++;
       if(route.offN>=3&&now-route.lastRe>REROUTE_MS){route.lastRe=now;route.offN=0;toast('Fuera de la ruta: recalculando…');planRoute(route.dest,{nav:true})}}
     else route.offN=0;
     updateProgress();route.lim=renderMan(a,now);
@@ -754,12 +809,19 @@ function routeTick(lat,lng,now){
   return best}
 
 // Trazado: parte recorrida en gris y lo que falta en verde
-function updateProgress(){if(!route||!route.lineTodo)return;
+function updateProgress(){if(!route)return;
   const a=route.alts[route.sel],G=a.geo,co=a.coords,al=Math.max(0,Math.min(route.userAlong||0,G.len));
   let lo=0,hi=G.cum.length-1;while(lo<hi-1){const m=(lo+hi)>>1;if(G.cum[m]<=al)lo=m;else hi=m}
   const seg=G.cum[lo+1]-G.cum[lo],t=seg>0?(al-G.cum[lo])/seg:0,b=co[Math.min(lo+1,co.length-1)];
   const pt=[co[lo][0]+(b[0]-co[lo][0])*t,co[lo][1]+(b[1]-co[lo][1])*t];
-  route.lineDone.setLatLngs(co.slice(0,lo+1).concat([pt]));route.lineTodo.setLatLngs([pt].concat(co.slice(lo+1)))}
+  route.prog={done:co.slice(0,lo+1).concat([pt]),todo:[pt].concat(co.slice(lo+1))};setRouteData()}
+// Punto del trazado a «al» metros del inicio, y rumbo de la ruta en ese punto (para orientar la cámara por la carretera)
+function pointAt(a,al){const G=a.geo,co=a.coords;al=Math.max(0,Math.min(al,G.len));
+  let lo=0,hi=G.cum.length-1;while(lo<hi-1){const m=(lo+hi)>>1;if(G.cum[m]<=al)lo=m;else hi=m}
+  const seg=G.cum[lo+1]-G.cum[lo],t=seg>0?(al-G.cum[lo])/seg:0,b=co[Math.min(lo+1,co.length-1)];
+  return [co[lo][0]+(b[0]-co[lo][0])*t,co[lo][1]+(b[1]-co[lo][1])*t]}
+function bearingDeg(a,b){const r=Math.PI/180,y=Math.sin((b[1]-a[1])*r)*Math.cos(b[0]*r),
+  x=Math.cos(a[0]*r)*Math.sin(b[0]*r)-Math.sin(a[0]*r)*Math.cos(b[0]*r)*Math.cos((b[1]-a[1])*r);return (Math.atan2(y,x)/r+360)%360}
 
 // Paso a paso en vivo: próxima maniobra, calle actual y aviso por voz
 function stepState(a,along){const st=a.steps||[];if(!st.length||st[0].s==null)return null;
@@ -781,7 +843,7 @@ function renderMan(a,now){const el=$('man');const ss=stepState(a,route.userAlong
 let overview=false;
 function setOverview(on,silent){overview=on;$('overview').classList.toggle('on',on);$('overview').setAttribute('aria-pressed',String(on));
   if(silent)return;
-  if(on)fitRoute();else{follow=true;if(me)centerOn(me.lat,me.lng,route&&route.nav?navZoom(lastKmh):null,true)}}
+  if(on)fitRoute();else{follow=true;if(shown)centerOn(shown[0],shown[1],driving()?navZoom(lastKmh):null,true)}}
 $('overview').onclick=()=>setOverview(!overview);
 // Zoom según la velocidad: más lejos en carretera, más cerca en ciudad
 let lastKmh=0;
@@ -789,12 +851,34 @@ const navZoom=k=>k>90?14:k>60?15:k>30?16:17;
 
 // ---------- Posición, velocidad y avisos por voz ----------
 let me=null, meMarker=null, follow=true, prev=null, alerted={}, overT=0, mode=null;
-map.on('dragstart',()=>follow=false);
-// Centra la posición en la parte VISIBLE del mapa (encima del panel inferior), no en el centro de la pantalla
-function centerOn(lat,lng,zoom,animate){const z=zoom??Math.max(map.getZoom(),16);
-  const shift=Math.max(0,(sheet.offsetHeight||0)/2-40);
-  map.setView(map.unproject(map.project([lat,lng],z).add([0,shift]),z),z,{animate:!!animate})}
-$('center').onclick=()=>{if(overview){setOverview(false);return}follow=true;if(me)centerOn(me.lat,me.lng,route&&route.nav?navZoom(lastKmh):null,true)};
+let heading=null, shown=null, lastFixAt=0, anim=null, cam3d=store.get('rn_3d',true);
+// Si el usuario mueve o gira el mapa con el dedo, deja de seguir al coche (vuelve con el botón de centrar)
+// y, conduciendo, vuelve solo a seguirlo 10 s después del último toque (como Waze)
+let idleT=null;
+function userMoved(){follow=false;clearTimeout(idleT);if(!mode)return;
+  idleT=setTimeout(()=>{if(!follow&&!overview&&mode&&shown){follow=true;centerOn(shown[0],shown[1],navZoom(lastKmh),true)}},10000)}
+map.on('dragstart',userMoved);
+map.on('rotatestart',e=>{if(e.originalEvent)userMoved()});map.on('pitchstart',e=>{if(e.originalEvent)userMoved()});
+// Modo conducción: GPS (o simulación) activo y siguiendo al coche
+const driving=()=>!!mode&&follow&&!overview;
+// Cámara: en conducción va inclinada (3D) y girada hacia donde va el coche, con el coche en la parte baja de la zona visible
+function centerOn(lat,lng,zoom,animate,dur){
+  const sh=sheet.offsetHeight||0,bottom=Math.min(sh,innerHeight*.62); // el panel tapa el centro de abajo, también en escritorio
+  const d3=cam3d&&driving();
+  map.easeTo({center:[lng,lat],zoom:zoom??Math.max(map.getZoom(),16),pitch:d3?60:0,bearing:d3&&heading!=null?heading:0,
+    padding:{top:d3?Math.round((innerHeight-bottom)*.42):0,bottom,left:0,right:0},
+    duration:animate?(dur||800):0,easing:t=>t,essential:true})}
+$('center').onclick=()=>{if(overview){setOverview(false);return}follow=true;if(shown)centerOn(shown[0],shown[1],driving()?navZoom(lastKmh):null,true)};
+$('view3d').onclick=()=>{cam3d=!cam3d;store.set('rn_3d',cam3d);$('view3d').textContent=cam3d?'2D':'3D';
+  $('view3d').setAttribute('aria-label',cam3d?'Ver el mapa en 2D':'Ver el mapa en 3D');follow=true;if(shown)centerOn(shown[0],shown[1],navZoom(lastKmh),true)};
+$('view3d').textContent=cam3d?'2D':'3D';
+// Movimiento suave del coche entre dos posiciones GPS (el GPS da ~1 posición por segundo)
+function moveMe(to,dur){if(!meMarker){const el=document.createElement('div');el.className='me';
+    meMarker=new maplibregl.Marker({element:el,rotationAlignment:'map',pitchAlignment:'map'}).setLngLat([to[1],to[0]]).addTo(map);shown=to;return}
+  meMarker.getElement().classList.toggle('dir',heading!=null);meMarker.setRotation(heading||0);
+  const from=shown||to,t0=performance.now();cancelAnimationFrame(anim);
+  const step=now=>{const k=Math.min(1,(now-t0)/dur);shown=[from[0]+(to[0]-from[0])*k,from[1]+(to[1]-from[1])*k];
+    meMarker.setLngLat([shown[1],shown[0]]);if(k<1)anim=requestAnimationFrame(step)};anim=requestAnimationFrame(step)}
 
 const RING=289;
 function setHud(best,kmh,lim,far){
@@ -813,14 +897,19 @@ function setHud(best,kmh,lim,far){
   $('ring').style.strokeDashoffset=RING*(1-Math.min(kmh/(lim+20),1));
 }
 
-function onPos(lat,lng,speedMs,ts){
+let gpsPoor=false,poorT=0;
+function onPos(lat,lng,speedMs,ts,gpsHeading,acc){
+  // Precisión: se descartan posiciones muy malas (>150 m) y con señal débil (>60 m) no se recalcula la ruta
+  if(acc!=null&&acc>150&&me)return;
+  gpsPoor=acc!=null&&acc>60;
+  if(gpsPoor&&Date.now()-poorT>60000){poorT=Date.now();toast('Señal GPS débil: la posición puede no ser exacta')}
   let kmh = (speedMs!=null&&speedMs>=0)?speedMs*3.6:null;
   if(kmh==null&&prev){const dt=(ts-prev.ts)/1000;if(dt>0)kmh=dist(prev.lat,prev.lng,lat,lng)/dt*3.6}
-  const firstFix=!me;
-  prev={lat,lng,ts};me={lat,lng};kmh=Math.max(0,Math.min(kmh||0,250));
-  if(!meMarker)meMarker=L.marker([lat,lng],{icon:meIcon,zIndexOffset:1000}).addTo(map);else meMarker.setLatLng([lat,lng]);
-  lastKmh=kmh;
-  if(follow)centerOn(lat,lng,route&&route.nav?navZoom(kmh):null,true);
+  const firstFix=!me,prevFix=prev;
+  kmh=Math.max(0,Math.min(kmh||0,250));
+  if(!firstFix)kmh=lastKmh*.35+kmh*.65; // suaviza saltos de velocidad del GPS
+  prev={lat,lng,ts};me={lat,lng};lastKmh=kmh;
+  const dt=lastFixAt?Math.min(1500,Math.max(300,Date.now()-lastFixAt)):0;lastFixAt=Date.now();
 
   // Con ruta: solo cuenta lo que está en el trayecto, por distancia de ruta. Sin ruta: lo más cercano en línea recta.
   const now=Date.now();let best=null;
@@ -832,6 +921,15 @@ function onPos(lat,lng,speedMs,ts){
     if(d<NEAR_M&&(!best||d<best.d))best={d,title:t.label,sub:ago(r.ts),ic:t.ic,cls:r.t};
     if(d<REPORT_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}});
   }
+
+  // Posición mostrada: pegada a la carretera de la ruta si está a menos de 30 m; rumbo de la ruta o del GPS
+  let pos=[lat,lng];
+  if(route&&route.nav&&(route.off??99)<30){const a=route.alts[route.sel];pos=pointAt(a,route.userAlong);heading=bearingDeg(pos,pointAt(a,route.userAlong+30))}
+  else if(gpsHeading!=null&&!isNaN(gpsHeading)&&kmh>5)heading=gpsHeading;
+  else if(prevFix&&kmh>3&&dist(prevFix.lat,prevFix.lng,lat,lng)>8)heading=bearingDeg([prevFix.lat,prevFix.lng],[lat,lng]); // parado no gira
+  moveMe(pos,dt||1);
+  $('view3d').hidden=false;
+  if(follow&&!overview)centerOn(pos[0],pos[1],navZoom(kmh),!firstFix,dt||800);
 
   // ¿Está el usuario fuera de la zona con radares (Pamplona)?
   let nearest=Infinity;radars.forEach(r=>{nearest=Math.min(nearest,dist(lat,lng,r.lat,r.lng))});
@@ -879,11 +977,12 @@ $('go').onclick=()=>{
   if(!('geolocation' in navigator)){toast('Este navegador no da la ubicación');return}
   mode='gps';$('start').hidden=true;say('Buen viaje');keepAwake();
   $('dot').className='dot on';$('stxt').textContent='Buscando GPS…';
-  watchId=navigator.geolocation.watchPosition(p=>{$('stxt').textContent='GPS activo';
-      onPos(p.coords.latitude,p.coords.longitude,p.coords.speed,p.timestamp)},
+  watchId=navigator.geolocation.watchPosition(p=>{const a=p.coords.accuracy;
+      $('stxt').textContent='GPS activo'+(a?' · ±'+Math.round(a)+' m':'');$('dot').className='dot '+(a&&a>60?'demo':'on');
+      onPos(p.coords.latitude,p.coords.longitude,p.coords.speed,p.timestamp,p.coords.heading,a)},
     err=>{$('stxt').textContent='Sin GPS';$('dot').className='dot';
       toast(err.code===1?'Permite la ubicación en el navegador para usar el GPS':'No llega la señal GPS')},
-    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+    {enableHighAccuracy:true,maximumAge:0,timeout:15000});
 };
 
 // Recorrido de ejemplo: Landaben → Pío XII → Ejército → Baja Navarra → Beloso.
