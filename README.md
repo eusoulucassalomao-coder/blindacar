@@ -27,3 +27,31 @@ Proyecto Supabase ya creado: `blindacar` (ref `nbvuvslfltzjuemrbhau`, región Pa
 - Límite de 1 aviso por minuto por usuario, reforzado en la base de datos.
 - Los avisos se muestran 10 min; los más antiguos de 1 h se pueden borrar con `select public.purge_old_reports();` (programable con pg_cron).
 - Pendiente: coordenadas reales de las cabinas (hoy aproximadas, `verified=false` en la tabla `radars`).
+
+## Variables de entorno (Vercel)
+Se configuran en Vercel > proyecto `blindacar` > Settings > Environment Variables, para **Production** y **Preview**. Nunca en el código ni en el repositorio.
+
+| Variable | Uso | Secreta |
+|---|---|---|
+| `SUPABASE_URL` | URL del proyecto Supabase | No |
+| `SUPABASE_SERVICE_ROLE_KEY` | Acceso de servidor a Supabase (`/api`) | **Sí** |
+| `STRIPE_SECRET_KEY` | API de Stripe (`/api/checkout`, webhook) | **Sí** |
+| `STRIPE_PRICE_ID` | Precio del pago único | No |
+| `STRIPE_WEBHOOK_SECRET` | Verificación de firma del webhook | **Sí** |
+| `APP_URL` | (opcional) URL pública para las redirecciones de Stripe | No |
+
+Claves públicas por diseño, presentes en `public/index.html`: la *publishable key* de Supabase (`sb_publishable_...`, protegida por RLS) y la clave de MapTiler (restringida por dominio). Ninguna otra clave debe aparecer en el código.
+
+## Despliegue automático (Git → Vercel)
+- Preset: **Other** · sin *build command* · *Output Directory* `public` (ya definido en `vercel.json`).
+- Push a `main` → **producción** (`blindacar.vercel.app`).
+- Cualquier otra rama → **preview** con su propia URL.
+- Las previews usan las variables del entorno *Preview*: usa allí claves de prueba de Stripe (`sk_test_...`).
+
+## Flujo de trabajo
+1. Una rama por tarea desde `main` (`feat/...`, `fix/...`, `chore/...`).
+2. Push de la rama → Vercel genera una preview → probar ahí.
+3. Abrir un *pull request* hacia `main`; revisar el diff y la preview.
+4. Merge solo cuando la preview funciona → se publica en producción.
+5. Si algo falla en producción: Vercel > Deployments > el despliegue anterior > **Promote to Production** (vuelta atrás inmediata).
+6. Cambios en la base de datos de Supabase: siempre con el SQL revisado antes de ejecutarlo.
