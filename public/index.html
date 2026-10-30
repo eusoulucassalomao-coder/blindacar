@@ -474,6 +474,9 @@ map.on('load',()=>{
     'circle-stroke-color':'#047857','circle-stroke-width':3,'circle-pitch-alignment':'map'}},firstSym);
   map.on('click','r-alt',e=>{const f=e.features&&e.features[0];if(f)selectAlt(f.properties.i)});
   map.on('mouseenter','r-alt',()=>{map.getCanvas().style.cursor='pointer'});map.on('mouseleave','r-alt',()=>{map.getCanvas().style.cursor=''});
+  // Nombres en español: el estilo de MapTiler pone primero el nombre en inglés (name:en)
+  layers.forEach(l=>{if(l.type!=='symbol')return;try{const tf=map.getLayoutProperty(l.id,'text-field');if(!tf)return;
+    const js=JSON.stringify(tf);if(js.includes('name:en'))map.setLayoutProperty(l.id,'text-field',JSON.parse(js.split('name:en').join('name:es')))}catch(e){}});
   mapReady=true;readyQ.splice(0).forEach(f=>f());
 });
 // Marcadores HTML (mismo diseño que antes) y ventanas emergentes
@@ -699,7 +702,7 @@ async function planRoute(dest,opts={}){
   route={dest,alts:alts.map(r=>({...r,geo:prepRoute(r.coords),n:0})),sel:0,nav,items:[],userAlong:0,offN:0,lastRe:Date.now()};
   route.userAlong=(origin&&!nav)?0:(me?project(route.alts[0].geo,me.lat,me.lng).along:0);
   drawRoute();refreshRouteItems();renderRouteBox();renderList(true);
-  if(nav){sheet.classList.add('min');setSheetH();say('Ruta recalculada');return}
+  if(nav){sheet.classList.add('min');setSheetH();say('Ruta recalculada');if(follow&&shown)centerOn(shown[0],shown[1],navZoom(lastKmh),true);return}
   fitRoute();
 }
 // Encuadra puntos [lat,lng] en la parte visible (encima del panel), en vista plana
@@ -798,7 +801,7 @@ function routeTick(lat,lng,now){
   if(route.nav){
     if(a.geo.len-p.along<ARRIVE_M&&p.off<OFF_ROUTE_M){say('Has llegado a tu destino');toast('Has llegado: '+route.dest.name);clearRoute();return null}
     route.off=p.off;
-    if(p.off>OFF_ROUTE_M){route.offN++;
+    if(p.off>OFF_ROUTE_M&&!gpsPoor){route.offN++;
       if(route.offN>=3&&now-route.lastRe>REROUTE_MS){route.lastRe=now;route.offN=0;toast('Fuera de la ruta: recalculando…');planRoute(route.dest,{nav:true})}}
     else route.offN=0;
     updateProgress();route.lim=renderMan(a,now);
@@ -850,8 +853,12 @@ const navZoom=k=>k>90?14:k>60?15:k>30?16:17;
 let me=null, meMarker=null, follow=true, prev=null, alerted={}, overT=0, mode=null;
 let heading=null, shown=null, lastFixAt=0, anim=null, cam3d=store.get('rn_3d',true);
 // Si el usuario mueve o gira el mapa con el dedo, deja de seguir al coche (vuelve con el botón de centrar)
-map.on('dragstart',()=>{follow=false});
-map.on('rotatestart',e=>{if(e.originalEvent)follow=false});map.on('pitchstart',e=>{if(e.originalEvent)follow=false});
+// y, conduciendo, vuelve solo a seguirlo 10 s después del último toque (como Waze)
+let idleT=null;
+function userMoved(){follow=false;clearTimeout(idleT);if(!mode)return;
+  idleT=setTimeout(()=>{if(!follow&&!overview&&mode&&shown){follow=true;centerOn(shown[0],shown[1],navZoom(lastKmh),true)}},10000)}
+map.on('dragstart',userMoved);
+map.on('rotatestart',e=>{if(e.originalEvent)userMoved()});map.on('pitchstart',e=>{if(e.originalEvent)userMoved()});
 // Modo conducción: GPS (o simulación) activo y siguiendo al coche
 const driving=()=>!!mode&&follow&&!overview;
 // Cámara: en conducción va inclinada (3D) y girada hacia donde va el coche, con el coche en la parte baja de la zona visible
@@ -890,11 +897,18 @@ function setHud(best,kmh,lim,far){
   $('ring').style.strokeDashoffset=RING*(1-Math.min(kmh/(lim+20),1));
 }
 
-function onPos(lat,lng,speedMs,ts,gpsHeading){
+let gpsPoor=false,poorT=0;
+function onPos(lat,lng,speedMs,ts,gpsHeading,acc){
+  // Precisión: se descartan posiciones muy malas (>150 m) y con señal débil (>60 m) no se recalcula la ruta
+  if(acc!=null&&acc>150&&me)return;
+  gpsPoor=acc!=null&&acc>60;
+  if(gpsPoor&&Date.now()-poorT>60000){poorT=Date.now();toast('Señal GPS débil: la posición puede no ser exacta')}
   let kmh = (speedMs!=null&&speedMs>=0)?speedMs*3.6:null;
   if(kmh==null&&prev){const dt=(ts-prev.ts)/1000;if(dt>0)kmh=dist(prev.lat,prev.lng,lat,lng)/dt*3.6}
   const firstFix=!me,prevFix=prev;
-  prev={lat,lng,ts};me={lat,lng};kmh=Math.max(0,Math.min(kmh||0,250));lastKmh=kmh;
+  kmh=Math.max(0,Math.min(kmh||0,250));
+  if(!firstFix)kmh=lastKmh*.35+kmh*.65; // suaviza saltos de velocidad del GPS
+  prev={lat,lng,ts};me={lat,lng};lastKmh=kmh;
   const dt=lastFixAt?Math.min(1500,Math.max(300,Date.now()-lastFixAt)):0;lastFixAt=Date.now();
 
   // Con ruta: solo cuenta lo que está en el trayecto, por distancia de ruta. Sin ruta: lo más cercano en línea recta.
@@ -912,7 +926,7 @@ function onPos(lat,lng,speedMs,ts,gpsHeading){
   let pos=[lat,lng];
   if(route&&route.nav&&(route.off??99)<30){const a=route.alts[route.sel];pos=pointAt(a,route.userAlong);heading=bearingDeg(pos,pointAt(a,route.userAlong+30))}
   else if(gpsHeading!=null&&!isNaN(gpsHeading)&&kmh>5)heading=gpsHeading;
-  else if(prevFix&&dist(prevFix.lat,prevFix.lng,lat,lng)>8)heading=bearingDeg([prevFix.lat,prevFix.lng],[lat,lng]);
+  else if(prevFix&&kmh>3&&dist(prevFix.lat,prevFix.lng,lat,lng)>8)heading=bearingDeg([prevFix.lat,prevFix.lng],[lat,lng]); // parado no gira
   moveMe(pos,dt||1);
   $('view3d').hidden=false;
   if(follow&&!overview)centerOn(pos[0],pos[1],navZoom(kmh),!firstFix,dt||800);
@@ -963,8 +977,9 @@ $('go').onclick=()=>{
   if(!('geolocation' in navigator)){toast('Este navegador no da la ubicación');return}
   mode='gps';$('start').hidden=true;say('Buen viaje');keepAwake();
   $('dot').className='dot on';$('stxt').textContent='Buscando GPS…';
-  watchId=navigator.geolocation.watchPosition(p=>{$('stxt').textContent='GPS activo';
-      onPos(p.coords.latitude,p.coords.longitude,p.coords.speed,p.timestamp,p.coords.heading)},
+  watchId=navigator.geolocation.watchPosition(p=>{const a=p.coords.accuracy;
+      $('stxt').textContent='GPS activo'+(a?' · ±'+Math.round(a)+' m':'');$('dot').className='dot '+(a&&a>60?'demo':'on');
+      onPos(p.coords.latitude,p.coords.longitude,p.coords.speed,p.timestamp,p.coords.heading,a)},
     err=>{$('stxt').textContent='Sin GPS';$('dot').className='dot';
       toast(err.code===1?'Permite la ubicación en el navegador para usar el GPS':'No llega la señal GPS')},
     {enableHighAccuracy:true,maximumAge:0,timeout:15000});
