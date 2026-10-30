@@ -669,7 +669,7 @@ function renderRouteBox(){
     $('rMeta').innerHTML=`<b>${fmtDur(t)}</b> · ${fmtDist(rem)} · llegada ${eta(t)}`}
   else $('rMeta').innerHTML=`<b>${fmtDur(a.time)}</b> · ${fmtDist(a.distance)} · ${nAvisos(a.n)} en la ruta`;
   const st=$('steps'),sl=$('stepsList');sl.innerHTML='';const steps=a.steps||[];st.hidden=route.nav||!steps.length;
-  steps.forEach(x=>{const li=document.createElement('li');li.innerHTML=`${esc(x.t)} <span>${fmtDist(x.d)}</span>`;sl.appendChild(li)});
+  steps.forEach(x=>{const li=document.createElement('li');li.innerHTML=`${esc(x.t)} <span>${fmtDist(x.d)}${x.lim?' · '+x.lim+' km/h':''}</span>`;sl.appendChild(li)});
   const box=$('alts');box.innerHTML='';box.hidden=route.nav||route.alts.length<2;
   if(!box.hidden)route.alts.forEach((x,i)=>{const b=document.createElement('button');b.type='button';b.className='alt'+(i===route.sel?' on':'');
     b.setAttribute('aria-pressed',String(i===route.sel));

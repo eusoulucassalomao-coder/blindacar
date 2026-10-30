@@ -30,6 +30,7 @@ async function fetchRoute(key, from, to, type) {
   u.searchParams.set('waypoints', `${from.lat},${from.lng}|${to.lat},${to.lng}`);
   u.searchParams.set('mode', 'drive');
   u.searchParams.set('lang', 'es');
+  u.searchParams.set('details', 'instruction_details,route_details'); // nombres de calle y límite de velocidad por tramo
   u.searchParams.set('type', type);
   u.searchParams.set('apiKey', key);
   const r = await fetch(u, { signal: AbortSignal.timeout(10000) });
@@ -40,7 +41,13 @@ async function fetchRoute(key, from, to, type) {
     .map((f) => ({
       distance: Math.round(f.properties.distance), time: Math.round(f.properties.time), coords: toCoords(f.geometry),
       steps: ((f.properties.legs || []).flatMap((l) => l.steps || []))
-        .map((st) => ({ t: String((st.instruction && st.instruction.text) || '').slice(0, 140), d: Math.round(st.distance || 0) }))
+        .map((st) => {
+          let t = String((st.instruction && st.instruction.text) || '');
+          const n = typeof st.name === 'string' ? st.name : '';
+          if (n && !t.toLowerCase().includes(n.toLowerCase())) t += ` (${n})`;
+          const lim = Number(st.speed_limit);
+          return { t: t.slice(0, 160), d: Math.round(st.distance || 0), lim: Number.isFinite(lim) && lim > 0 ? Math.round(lim) : 0 };
+        })
         .filter((st) => st.t).slice(0, 80),
     }))
     .filter((x) => x.coords.length > 1 && Number.isFinite(x.distance) && Number.isFinite(x.time));
