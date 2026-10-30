@@ -150,6 +150,46 @@ svg{display:block}
 .small{font-size:11.5px;color:var(--muted);line-height:1.55;font-weight:500}
 .gicon{width:22px;height:22px;flex:none}
 
+/* Búsqueda de destino */
+.search{display:flex;align-items:center;gap:8px;background:var(--gxl);border:2px solid transparent;border-radius:16px;padding:0 6px 0 12px;margin:2px 0 12px;transition:border-color .15s}
+.search:focus-within{border-color:var(--g1);background:#fff}
+.search .sic{color:var(--g3);flex:none}
+.search input{flex:1;min-width:0;border:0;background:none;outline:none;font:700 15px var(--font);color:var(--ink);padding:13px 0;-webkit-appearance:none;appearance:none}
+.search input::placeholder{color:#64748b;font-weight:600}
+.search input::-webkit-search-cancel-button{display:none}
+.qx{width:34px;height:34px;border:0;border-radius:10px;background:transparent;color:var(--muted);display:grid;place-items:center;cursor:pointer;flex:none}
+.sugs{list-style:none;margin:-4px 0 12px;padding:6px;background:var(--gxl);border-radius:18px;display:flex;flex-direction:column;gap:4px;max-height:min(46vh,360px);overflow:auto}
+.sugs button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;border:0;background:#fff;border-radius:13px;padding:10px;cursor:pointer;font-family:inherit;color:var(--ink)}
+.sugs button:active{transform:scale(.99)}
+.sugs .pin{width:32px;height:32px;border-radius:10px;background:var(--gsoft);color:var(--g3);display:grid;place-items:center;flex:none}
+.sugs .n{display:block;font-weight:800;font-size:14px;line-height:1.2}
+.sugs .s{display:block;font-size:12px;color:var(--muted);font-weight:600;margin-top:1px}
+.sugs .msg{font-size:12.5px;color:var(--muted);font-weight:600;padding:10px;text-align:center;line-height:1.45}
+.sugs .by{font-size:10.5px;color:var(--muted);font-weight:600;text-align:right;padding:2px 8px 0}
+.sugs .by a{color:var(--muted)}
+.sheet.searching .sum,.sheet.searching .segs,.sheet.searching .listwrap,.sheet.searching .acts,.sheet.searching .routebox{display:none}
+
+/* Ruta */
+.routebox{margin:0 0 12px}
+.rh{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.rh .tx{flex:1;min-width:0}
+.rn{font-weight:800;font-size:17px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rmeta{font-size:12.5px;color:var(--muted);font-weight:700;margin-top:2px}
+.rmeta b{color:var(--g3)}
+.rclose{background:#f1f5f9;color:var(--ink)}
+.alts{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.alt{border:2px solid var(--line);background:#fff;border-radius:16px;padding:9px 10px;text-align:left;cursor:pointer;font-family:inherit;color:var(--ink);transition:border-color .15s,background .15s}
+.alt b{display:block;font-size:18px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.alt span{display:block;font-size:11.5px;color:var(--muted);font-weight:700;margin-top:1px}
+.alt i{font-style:normal;color:var(--g3)}
+.alt.on{border-color:var(--g2);background:var(--gxl)}
+.alt.on b{color:var(--g3)}
+.sheet.planning .sum,.sheet.planning .segs,.sheet.planning .acts{display:none}
+.sheet.planning .list{max-height:min(17vh,150px)}
+.sheet.routing .search{display:none}
+.halo{pointer-events:none}
+.mk.dest{--c:var(--ink)}
+
 /* Aviso de estado sobre el mapa (sin acceso, lejos de Pamplona…) */
 .banner{position:fixed;z-index:25;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 192px);width:min(calc(100% - 28px),440px);
   display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 10px 10px 12px;box-shadow:var(--sh)}
@@ -201,6 +241,21 @@ svg{display:block}
 
 <section class="sheet" id="sheet" aria-label="Avisos">
   <button class="handle" id="handle" type="button" aria-label="Mostrar u ocultar la lista de avisos"></button>
+  <div class="search" id="search">
+    <span class="sic" data-ic="search" data-s="20"></span>
+    <input id="q" type="search" placeholder="¿A dónde vas?" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Buscar destino" aria-controls="sugs">
+    <button class="qx" id="qx" type="button" aria-label="Borrar búsqueda" data-ic="x" data-s="18" hidden></button>
+  </div>
+  <ul class="sugs" id="sugs" role="listbox" aria-label="Sugerencias de destino" hidden></ul>
+  <div class="routebox" id="routeBox" hidden>
+    <div class="rh">
+      <div class="tile" id="rIc"></div>
+      <div class="tx"><div class="rn" id="rDest">—</div><div class="rmeta" id="rMeta">—</div></div>
+      <button class="del rclose" id="rClose" type="button" aria-label="Cancelar la ruta" data-ic="x" data-s="18"></button>
+    </div>
+    <div class="alts" id="alts"></div>
+    <button class="btn" id="rStart" type="button" data-ic="navigation" data-s="20">Iniciar ruta</button>
+  </div>
   <div class="sum">
     <div style="min-width:0">
       <div class="lbl">Próximo aviso</div>
@@ -295,7 +350,12 @@ const ICONS = {
   alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
-  navigation:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>'
+  navigation:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+  route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>'
 };
 const svg = (n,s=20) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 document.querySelectorAll('[data-ic]').forEach(el=>el.insertAdjacentHTML('afterbegin',svg(el.dataset.ic,+el.dataset.s||22)));
@@ -343,6 +403,11 @@ L.tileLayer('https://api.maptiler.com/maps/basic-v2-light/{z}/{x}/{y}{r}.png?key
   attribution:'© <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(map);
 const icon = (cls,ic)=>L.divIcon({className:'',html:`<div class="mk ${cls}">${svg(ic,18)}</div>`,iconSize:[36,36],iconAnchor:[18,18]});
 const meIcon = L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[22,22],iconAnchor:[11,11]});
+// Rutas y búsqueda: Geoapify (plan gratuito con uso comercial; exige atribución)
+map.attributionControl.addAttribution('<a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>');
+let route = null;                                 // ruta activa (ver «Ruta» más abajo)
+const routeLayer = L.layerGroup().addTo(map);     // trazados
+const haloLayer = L.layerGroup().addTo(map);      // círculos verdes en los avisos que están en la ruta
 
 // Radares (con correcciones guardadas en este móvil)
 const fixes = store.get('rn_fixes',{});
@@ -380,7 +445,7 @@ function drawRadars(){radarLayer.clearLayers();radars.forEach(r=>{
     btn.onclick=()=>{if(!me){toast('Necesito tu posición primero');return}
       r.lat=me.lat;r.lng=me.lng;r.fixed=true;fixes[r.id]=[me.lat,me.lng];store.set('rn_fixes',fixes);drawRadars();toast('Radar movido a tu posición')};
     d.appendChild(btn);return d});
-});}
+});if(route)refreshRouteItems();}
 drawRadars();
 
 // ---------- Avisos de la comunidad ----------
@@ -394,6 +459,7 @@ function drawReports(){reportLayer.clearLayers();const now=Date.now();
        d.innerHTML=`<b>${t.label}</b><small>Avisado ${esc(repMeta(r))}</small>`;
        if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
        return d})});
+  if(route)refreshRouteItems();
   renderList(true);}
 function addReport(r){if(!r||!TYPES[r.t]||typeof r.lat!=='number'||typeof r.lng!=='number'||typeof r.ts!=='number')return;
   // La zona de servicio (Navarra) se valida en el servidor; las cuentas de prueba pueden avisar desde otros lugares
@@ -444,6 +510,7 @@ function repMeta(r){const left=Math.max(1,Math.ceil((REPORT_TTL-(Date.now()-r.ts
 function addInfo(ul,t){const li=document.createElement('li');li.className='info';li.textContent=t;ul.appendChild(li)}
 function renderList(force){
   const now=Date.now();if(!force&&now-lastList<3000)return;lastList=now;
+  if(route){renderRouteList();return}
   const items=[];
   reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
     items.push({id:r.id,k:'rep',t:r.t,name:t.label,ic:t.ic,ts:r.ts,own:isOwn(r),d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:repMeta(r)})});
@@ -464,10 +531,172 @@ function renderList(force){
     ul.appendChild(li)});
 }
 
+// ---------- Ruta: destino, alternativas y avisos en el camino ----------
+const ROUTE_BUF_M = 100;   // radares y avisos a menos de 100 m del trazado
+const OFF_ROUTE_M = 60;    // más lejos que esto del trazado = fuera de la ruta
+const REROUTE_MS = 20000;  // como mucho un recálculo cada 20 s
+const ARRIVE_M = 35;
+const BEHIND_M = 25;       // lo que ya quedó atrás deja de mostrarse
+let planSeq = 0;
+
+// Geometría con proyección local en metros (precisa de sobra para trayectos de coche)
+const M_DEG = 111320;
+function prepRoute(coords){const kx=M_DEG*Math.cos(coords[0][0]*Math.PI/180);
+  const xy=coords.map(c=>[c[1]*kx,c[0]*M_DEG]);const cum=[0];
+  for(let i=1;i<xy.length;i++)cum.push(cum[i-1]+Math.hypot(xy[i][0]-xy[i-1][0],xy[i][1]-xy[i-1][1]));
+  return {xy,cum,kx,len:cum[cum.length-1]}}
+// Punto del trazado más cercano: distancia al trazado (off) y metros recorridos hasta él (along)
+function project(G,lat,lng){const px=lng*G.kx,py=lat*M_DEG;let best={off:Infinity,along:0};
+  for(let i=0;i<G.xy.length-1;i++){const a=G.xy[i],b=G.xy[i+1],dx=b[0]-a[0],dy=b[1]-a[1],l2=dx*dx+dy*dy;
+    let t=l2?((px-a[0])*dx+(py-a[1])*dy)/l2:0;t=t<0?0:t>1?1:t;
+    const off=Math.hypot(px-(a[0]+t*dx),py-(a[1]+t*dy));
+    if(off<best.off)best={off,along:G.cum[i]+t*Math.sqrt(l2)}}
+  return best}
+function fmtDur(s){const m=Math.max(1,Math.round(s/60));return m<60?m+' min':Math.floor(m/60)+' h '+String(m%60).padStart(2,'0')+' min'}
+function eta(s){return new Date(Date.now()+s*1000).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}
+const nAvisos = n => n===1?'1 aviso':n+' avisos';
+
+// Llamadas a /api (la clave del servicio de rutas solo vive en el servidor)
+async function api(path){
+  const {data:{session:s}}=await sb.auth.getSession();
+  if(!s)throw new Error('no_token');
+  const res=await fetch(path,{headers:{Authorization:'Bearer '+s.access_token}});
+  let j={};try{j=await res.json()}catch(e){}
+  if(!res.ok)throw new Error(j.error||'http_'+res.status);
+  return j}
+const API_ERR={not_configured:'Las rutas aún no están configuradas en el servidor.',no_access:'Necesitas acceso para usar las rutas.',
+  no_token:'Vuelve a iniciar sesión.',invalid_token:'Vuelve a iniciar sesión.',too_far:'Destino demasiado lejos (máximo 300 km).',
+  no_route:'No hay ruta en coche hasta ese destino.',upstream:'El servicio de rutas no responde. Inténtalo de nuevo.'};
+const apiErr = e => API_ERR[e.message]||'Sin conexión con el servicio de rutas.';
+
+// Búsqueda de destino con sugerencias
+let qT=null,qSeq=0;
+function setSearching(on){sheet.classList.toggle('searching',on);
+  if(on)sheet.classList.remove('min');
+  else{$('sugs').hidden=true;if(route){$('q').value=route.dest.name;$('qx').hidden=false}}
+  setSheetH()}
+function sugMsg(t){const ul=$('sugs');ul.innerHTML='';const li=document.createElement('li');li.className='msg';li.textContent=t;ul.appendChild(li);ul.hidden=false;setSheetH()}
+function showSugs(list){const ul=$('sugs');ul.innerHTML='';
+  if(!list.length){sugMsg('Sin resultados. Prueba con otra calle o lugar.');return}
+  list.forEach(s=>{const li=document.createElement('li'),b=document.createElement('button');b.type='button';b.setAttribute('role','option');
+    b.innerHTML=`<span class="pin">${svg('pin',18)}</span><span style="min-width:0"><span class="n">${esc(s.name)}</span>${s.sub?`<span class="s">${esc(s.sub)}</span>`:''}</span>`;
+    b.onclick=()=>{$('q').blur();planRoute({name:s.name,lat:s.lat,lng:s.lng})};li.appendChild(b);ul.appendChild(li)});
+  const by=document.createElement('li');by.className='by';by.innerHTML='<a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>';ul.appendChild(by);
+  ul.hidden=false;setSheetH()}
+async function runSearch(){const v=$('q').value.trim();if(v.length<3)return;const seq=++qSeq;const c=me||map.getCenter();
+  try{const j=await api(`/api/geocode?q=${encodeURIComponent(v)}&lat=${c.lat.toFixed(4)}&lng=${c.lng.toFixed(4)}`);
+    if(seq===qSeq&&sheet.classList.contains('searching'))showSugs(j.results||[])}
+  catch(e){if(seq===qSeq)sugMsg(apiErr(e))}}
+$('q').addEventListener('focus',()=>{setSearching(true);if(route){$('q').select()}else if($('q').value.trim().length>=3)runSearch()});
+$('q').addEventListener('input',()=>{const v=$('q').value.trim();$('qx').hidden=!v;clearTimeout(qT);
+  if(v.length<3){qSeq++;$('sugs').hidden=true;setSheetH();return}
+  qT=setTimeout(runSearch,350)});
+$('q').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){$('q').blur();setSearching(false)}
+  if(e.key==='Enter'){e.preventDefault();const b=$('sugs').hidden?null:$('sugs').querySelector('button');if(b)b.click();else{clearTimeout(qT);runSearch()}}});
+$('qx').onclick=()=>{$('q').value='';$('qx').hidden=true;qSeq++;$('sugs').hidden=true;$('q').focus();setSheetH()};
+map.on('click',()=>{if(sheet.classList.contains('searching')){$('q').blur();setSearching(false)}});
+
+// Calcular la ruta (también para recalcular si el conductor se sale)
+async function planRoute(dest,opts={}){
+  const nav=!!opts.nav;
+  if(!me){sugMsg('Esperando tu posición GPS para calcular la ruta…');return}
+  const seq=++planSeq;
+  if(!nav){setSearching(false);$('q').value=dest.name;$('qx').hidden=false;
+    $('routeBox').hidden=false;sheet.classList.add('planning','routing');$('rIc').innerHTML=svg('flag',20);$('rDest').textContent=dest.name;
+    $('rMeta').textContent='Calculando ruta…';$('alts').innerHTML='';$('rStart').hidden=true;setSheetH()}
+  let j;
+  try{j=await api(`/api/route?from=${me.lat.toFixed(5)},${me.lng.toFixed(5)}&to=${(+dest.lat).toFixed(5)},${(+dest.lng).toFixed(5)}`)}
+  catch(e){if(seq!==planSeq)return;if(nav)toast('No se pudo recalcular: '+apiErr(e));else $('rMeta').textContent=apiErr(e);return}
+  if(seq!==planSeq)return;
+  const alts=(j.routes||[]).filter(r=>Array.isArray(r.coords)&&r.coords.length>1);
+  if(!alts.length){if(!nav)$('rMeta').textContent=API_ERR.no_route;return}
+  route={dest,alts:alts.map(r=>({...r,geo:prepRoute(r.coords),n:0})),sel:0,nav,items:[],userAlong:0,offN:0,lastRe:Date.now()};
+  route.userAlong=project(route.alts[0].geo,me.lat,me.lng).along;
+  drawRoute();refreshRouteItems();renderRouteBox();renderList(true);
+  if(nav){say('Ruta recalculada');return}
+  fitRoute();
+}
+function fitRoute(){if(!route)return;follow=false;const b=L.latLngBounds(route.alts[route.sel].coords);if(me)b.extend([me.lat,me.lng]);
+  map.fitBounds(b,{paddingTopLeft:[28,150],paddingBottomRight:[28,(sheet.offsetHeight||300)+24]})}
+function drawRoute(){routeLayer.clearLayers();if(!route)return;
+  route.alts.forEach((a,i)=>{if(i===route.sel)return;
+    L.polyline(a.coords,{color:'#94a3b8',weight:7,opacity:.8,lineCap:'round'}).on('click',()=>selectAlt(i)).addTo(routeLayer)});
+  const a=route.alts[route.sel];
+  L.polyline(a.coords,{color:'#fff',weight:13,interactive:false,lineCap:'round'}).addTo(routeLayer);
+  L.polyline(a.coords,{color:'#10b981',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer);
+  L.marker([route.dest.lat,route.dest.lng],{icon:icon('dest','flag'),interactive:false,zIndexOffset:500}).addTo(routeLayer)}
+function selectAlt(i){if(!route||i===route.sel||!route.alts[i])return;route.sel=i;
+  route.userAlong=me?project(route.alts[i].geo,me.lat,me.lng).along:0;
+  drawRoute();refreshRouteItems();renderRouteBox();renderList(true);if(!route.nav)fitRoute()}
+// Radares y avisos a menos de ROUTE_BUF_M del trazado, en el orden en que aparecen
+function onRoute(G){const out=[];
+  radars.forEach(r=>{const p=project(G,r.lat,r.lng);if(p.off<=ROUTE_BUF_M)out.push({k:'rad',id:'r'+r.id,ref:r,along:p.along})});
+  reports.forEach(r=>{if(!TYPES[r.t])return;const p=project(G,r.lat,r.lng);if(p.off<=ROUTE_BUF_M)out.push({k:'rep',id:'p'+r.id,ref:r,along:p.along})});
+  return out.sort((a,b)=>a.along-b.along)}
+function refreshRouteItems(){haloLayer.clearLayers();if(!route)return;
+  route.alts.forEach((a,i)=>{const items=onRoute(a.geo);a.n=items.length;if(i===route.sel)route.items=items});
+  route.items.forEach(it=>L.circleMarker([it.ref.lat,it.ref.lng],{radius:25,color:'#047857',weight:3,fillColor:'#34d399',fillOpacity:.22,interactive:false,className:'halo'}).addTo(haloLayer));
+  renderRouteBox()}
+function renderRouteBox(){
+  if(!route){$('routeBox').hidden=true;sheet.classList.remove('planning','routing');setSheetH();return}
+  $('routeBox').hidden=false;$('rIc').innerHTML=svg('flag',20);$('rDest').textContent=route.dest.name;
+  const a=route.alts[route.sel];
+  if(route.nav){const rem=Math.max(0,a.geo.len-route.userAlong),t=a.time*rem/Math.max(a.geo.len,1);
+    $('rMeta').innerHTML=`<b>${fmtDur(t)}</b> · ${fmtDist(rem)} · llegada ${eta(t)}`}
+  else $('rMeta').innerHTML=`<b>${fmtDur(a.time)}</b> · ${fmtDist(a.distance)} · ${nAvisos(a.n)} en la ruta`;
+  const box=$('alts');box.innerHTML='';box.hidden=route.nav||route.alts.length<2;
+  if(!box.hidden)route.alts.forEach((x,i)=>{const b=document.createElement('button');b.type='button';b.className='alt'+(i===route.sel?' on':'');
+    b.setAttribute('aria-pressed',String(i===route.sel));
+    b.innerHTML=`<b>${fmtDur(x.time)}</b><span>${fmtDist(x.distance)} · ${esc(x.label)}</span><span><i>${nAvisos(x.n)}</i></span>`;
+    b.onclick=()=>selectAlt(i);box.appendChild(b)});
+  $('rStart').hidden=route.nav;$('rClose').setAttribute('aria-label',route.nav?'Terminar la ruta':'Cancelar la ruta');
+  sheet.classList.toggle('planning',!route.nav);sheet.classList.add('routing');setSheetH()}
+function renderRouteList(){
+  const ul=$('list');ul.innerHTML='';const from=route.userAlong||0;
+  const ahead=route.items.filter(it=>it.along-from>-BEHIND_M);
+  $('lhT').firstChild.textContent='En tu ruta';$('lhS').textContent='Radares y avisos a menos de 100 m del trayecto';
+  $('listCount').textContent=nAvisos(ahead.length);
+  if(!ahead.length)addInfo(ul,route.items.length?'Ya has pasado todos los avisos de esta ruta.':'Ningún radar ni aviso a menos de 100 m de esta ruta. Los avisos de la comunidad duran 10 minutos.');
+  ahead.forEach(it=>{const r=it.ref,isR=it.k==='rad',t=isR?null:TYPES[r.t];
+    const li=document.createElement('li');li.className='row';
+    li.innerHTML=`<div class="tile ${isR?'':r.t}">${svg(isR?'gauge':t.ic,18)}</div><div class="tx"><div class="n">${esc(isR?r.name:t.label)}</div><div class="m">${esc(isR?'Radar fijo · '+r.lim+' km/h':repMeta(r))}</div></div><div class="dd">${fmtDist(Math.max(0,it.along-from))}</div>`;
+    if(!isR&&isOwn(r)){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(r.id);li.appendChild(b)}
+    ul.appendChild(li)})}
+$('rStart').onclick=()=>{if(!route)return;
+  if(!me){toast('Esperando tu posición…');return}
+  route.nav=true;route.offN=0;follow=true;renderRouteBox();centerOn(me.lat,me.lng,17);
+  const n=route.items.length;say(n?`Ruta iniciada. ${n===1?'Un aviso':n+' avisos'} en el camino`:'Ruta iniciada. Sin avisos en el camino');
+  if(mode==='demo')demoFollow(route.alts[route.sel].coords);
+  renderRouteBox();renderList(true)};
+$('rClose').onclick=()=>{const was=route&&route.nav;clearRoute();toast(was?'Ruta terminada':'Ruta cancelada')};
+function clearRoute(){planSeq++;route=null;routeLayer.clearLayers();haloLayer.clearLayers();
+  $('q').value='';$('qx').hidden=true;renderRouteBox();renderList(true);if(mode==='demo')demoFollow(null)}
+// En cada posición GPS: próximo aviso de la ruta, aviso por voz, fuera de ruta y llegada
+function routeTick(lat,lng,now){
+  const a=route.alts[route.sel],p=project(a.geo,lat,lng);route.userAlong=p.along;let best=null;
+  route.items.forEach(it=>{const ahead=it.along-p.along;if(ahead<-BEHIND_M)return;const d=Math.max(0,ahead),r=it.ref;
+    const again=!alerted[it.id]||now-alerted[it.id]>REALERT_MS;
+    if(it.k==='rad'){if(!best)best={d,title:'Radar fijo',sub:r.name+' · en tu ruta',ic:'gauge',cls:'',lim:r.lim};
+      if(d<RADAR_ALERT_M&&again){alerted[it.id]=now;say(`Radar fijo a ${Math.round(d/50)*50} metros. Límite ${r.lim}`)}}
+    else{const t=TYPES[r.t];if(!best)best={d,title:t.label,sub:ago(r.ts)+' · en tu ruta',ic:t.ic,cls:r.t};
+      if(d<REPORT_ALERT_M&&again){alerted[it.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}}});
+  if(route.nav){
+    if(a.geo.len-p.along<ARRIVE_M&&p.off<OFF_ROUTE_M){say('Has llegado a tu destino');toast('Has llegado: '+route.dest.name);clearRoute();return null}
+    if(p.off>OFF_ROUTE_M){route.offN++;
+      if(route.offN>=3&&now-route.lastRe>REROUTE_MS){route.lastRe=now;route.offN=0;toast('Fuera de la ruta: recalculando…');planRoute(route.dest,{nav:true})}}
+    else route.offN=0;
+    renderRouteBox()}
+  return best}
+
 // ---------- Posición, velocidad y avisos por voz ----------
 let me=null, meMarker=null, follow=true, prev=null, alerted={}, overT=0, mode=null;
 map.on('dragstart',()=>follow=false);
-$('center').onclick=()=>{follow=true;if(me)map.setView([me.lat,me.lng],Math.max(map.getZoom(),16))};
+// Centra la posición en la parte VISIBLE del mapa (encima del panel inferior), no en el centro de la pantalla
+function centerOn(lat,lng,zoom,animate){const z=zoom??Math.max(map.getZoom(),16);
+  const shift=Math.max(0,(sheet.offsetHeight||0)/2-40);
+  map.setView(map.unproject(map.project([lat,lng],z).add([0,shift]),z),z,{animate:!!animate})}
+$('center').onclick=()=>{follow=true;if(me)centerOn(me.lat,me.lng)};
 
 const RING=289;
 function setHud(best,kmh,lim,far){
@@ -492,15 +721,18 @@ function onPos(lat,lng,speedMs,ts){
   const firstFix=!me;
   prev={lat,lng,ts};me={lat,lng};kmh=Math.max(0,Math.min(kmh||0,250));
   if(!meMarker)meMarker=L.marker([lat,lng],{icon:meIcon,zIndexOffset:1000}).addTo(map);else meMarker.setLatLng([lat,lng]);
-  if(follow)map.setView([lat,lng],Math.max(map.getZoom(),16),{animate:true});
+  if(follow)centerOn(lat,lng,null,true);
 
-  // Aviso más cercano (radares + comunidad)
+  // Con ruta: solo cuenta lo que está en el trayecto, por distancia de ruta. Sin ruta: lo más cercano en línea recta.
   const now=Date.now();let best=null;
+  if(route)best=routeTick(lat,lng,now);
+  else{
   radars.forEach(r=>{const d=dist(lat,lng,r.lat,r.lng);if(d<NEAR_M&&(!best||d<best.d))best={d,title:'Radar fijo',sub:r.name,ic:'gauge',cls:'',lim:r.lim}
     if(d<RADAR_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(`Radar fijo a ${Math.round(d/50)*50} metros. Límite ${r.lim}`)}});
   reports.forEach(r=>{const d=dist(lat,lng,r.lat,r.lng);const t=TYPES[r.t];
     if(d<NEAR_M&&(!best||d<best.d))best={d,title:t.label,sub:ago(r.ts),ic:t.ic,cls:r.t};
     if(d<REPORT_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}});
+  }
 
   // ¿Está el usuario fuera de la zona con radares (Pamplona)?
   let nearest=Infinity;radars.forEach(r=>{nearest=Math.min(nearest,dist(lat,lng,r.lat,r.lng))});
@@ -570,17 +802,21 @@ $('go').onclick=()=>{
     {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
 };
 
-// Recorrido de ejemplo: Landaben → Pío XII → Ejército → Baja Navarra → Beloso
+// Recorrido de ejemplo: Landaben → Pío XII → Ejército → Baja Navarra → Beloso.
+// Si se inicia una ruta en modo ejemplo, el recorrido sigue esa ruta (sirve para probar la navegación sin conducir).
+const DEMO_PATH=[[42.8128,-1.6935],[42.8128,-1.6868],[42.8110,-1.6760],[42.8090,-1.6650],[42.8072,-1.6552],
+  [42.8110,-1.6500],[42.8152,-1.6478],[42.8135,-1.6420],[42.8114,-1.6386],[42.8160,-1.6340],[42.8205,-1.6295],[42.8240,-1.6250]];
+let demoPts=[],demoI=0,demoT=null;
+function demoFollow(path){path=path||DEMO_PATH;const pts=[];
+  for(let i=0;i<path.length-1;i++){const[a,b]=path[i],[c,d]=path[i+1];const n=Math.max(1,Math.round(dist(a,b,c,d)/12));
+    for(let k=0;k<n;k++)pts.push([a+(c-a)*k/n,b+(d-b)*k/n])}
+  pts.push(path[path.length-1]);demoPts=pts;demoI=0}
 $('demo').onclick=()=>{
   mode='demo';$('start').hidden=true;keepAwake();say('Recorrido de ejemplo');
   $('dot').className='dot demo';$('stxt').textContent='Recorrido de ejemplo';
-  const path=[[42.8128,-1.6935],[42.8128,-1.6868],[42.8110,-1.6760],[42.8090,-1.6650],[42.8072,-1.6552],
-    [42.8110,-1.6500],[42.8152,-1.6478],[42.8135,-1.6420],[42.8114,-1.6386],[42.8160,-1.6340],[42.8205,-1.6295],[42.8240,-1.6250]];
-  const pts=[];for(let i=0;i<path.length-1;i++){const[a,b]=path[i],[c,d]=path[i+1];const n=Math.max(2,Math.round(dist(a,b,c,d)/12));
-    for(let k=0;k<n;k++)pts.push([a+(c-a)*k/n,b+(d-b)*k/n])}
-  let i=0;const speeds=[48,52,58,46,44];
-  setInterval(()=>{const[lat,lng]=pts[i%pts.length];const s=speeds[Math.floor(i/60)%speeds.length];
-    onPos(lat,lng,s/3.6,Date.now());i++},Math.round(12/(50/3.6)*1000));
+  demoFollow(null);const speeds=[48,52,58,46,44];
+  if(!demoT)demoT=setInterval(()=>{const[lat,lng]=demoPts[demoI%demoPts.length];const s=speeds[Math.floor(demoI/60)%speeds.length];
+    onPos(lat,lng,s/3.6,Date.now());demoI++},Math.round(12/(50/3.6)*1000));
 };
 renderList(true);setHud(null,0,CITY_LIMIT);$('shDist').textContent='—';$('shName').textContent='Esperando GPS…';
 })();
