@@ -688,16 +688,24 @@ function renderRouteList(){
     li.innerHTML=`<div class="tile ${isR?'':r.t}">${svg(isR?'gauge':t.ic,18)}</div><div class="tx"><div class="n">${esc(isR?r.name:t.label)}</div><div class="m">${esc(isR?'Radar fijo · '+r.lim+' km/h':repMeta(r))}</div></div><div class="dd">${fmtDist(Math.max(0,it.along-from))}</div>`;
     if(!isR&&isOwn(r)){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(r.id);li.appendChild(b)}
     ul.appendChild(li)})}
+function startSim(){ // GPS lejos del inicio de la ruta: se recorre el trayecto en simulación para poder verlo
+  if(watchId!=null){try{navigator.geolocation.clearWatch(watchId)}catch(e){}watchId=null}
+  mode='demo';$('dot').className='dot demo';$('stxt').textContent='Simulación de ruta';
+  route.nav=true;route.offN=0;follow=true;demoFollow(route.alts[route.sel].coords);runDemoTimer();
+  const st=route.alts[route.sel].coords[0];onPos(st[0],st[1],0,Date.now());
+  toast('Estás lejos del inicio: simulando el recorrido');say('Simulación de ruta iniciada');renderRouteBox();renderList(true)}
 $('rStart').onclick=()=>{if(!route)return;
-  if(!me){toast('Esperando tu posición…');return}
-  if(origin){origin=null;$('qf').value='';$('qfx').hidden=true;toast('Iniciando desde tu ubicación…');planRoute(route.dest).then(()=>{if(route){route.nav=true;route.offN=0;follow=true;renderRouteBox();centerOn(me.lat,me.lng,17);renderList(true)}});return}
-  route.nav=true;route.offN=0;follow=true;renderRouteBox();centerOn(me.lat,me.lng,17);
+  const co=route.alts[route.sel].coords,st=co[0];
+  const near=!!me&&dist(me.lat,me.lng,st[0],st[1])<1500;
+  if(mode==='gps'&&!near){startSim();return}
+  if(mode==='gps'&&!me){toast('Esperando tu posición…');return}
+  route.nav=true;route.offN=0;follow=true;renderRouteBox();if(me)centerOn(me.lat,me.lng,17);
   const n=route.items.length;say(n?`Ruta iniciada. ${n===1?'Un aviso':n+' avisos'} en el camino`:'Ruta iniciada. Sin avisos en el camino');
-  if(mode==='demo')demoFollow(route.alts[route.sel].coords);
+  if(mode==='demo'){demoFollow(co);runDemoTimer()}
   renderRouteBox();renderList(true)};
 $('rClose').onclick=()=>{const was=route&&route.nav;clearRoute();toast(was?'Ruta terminada':'Ruta cancelada')};
 function clearRoute(){planSeq++;route=null;routeLayer.clearLayers();haloLayer.clearLayers();
-  $('q').value='';$('qx').hidden=true;renderRouteBox();renderList(true);if(mode==='demo')demoFollow(null)}
+  $('q').value='';$('qx').hidden=true;origin=null;$('qf').value='';$('qfx').hidden=true;renderRouteBox();renderList(true);if(mode==='demo')demoFollow(null)}
 // En cada posición GPS: próximo aviso de la ruta, aviso por voz, fuera de ruta y llegada
 function routeTick(lat,lng,now){
   const a=route.alts[route.sel],p=project(a.geo,lat,lng);route.userAlong=p.along;let best=null;
@@ -837,13 +845,13 @@ function demoFollow(path){path=path||DEMO_PATH;const pts=[];
   for(let i=0;i<path.length-1;i++){const[a,b]=path[i],[c,d]=path[i+1];const n=Math.max(1,Math.round(dist(a,b,c,d)/12));
     for(let k=0;k<n;k++)pts.push([a+(c-a)*k/n,b+(d-b)*k/n])}
   pts.push(path[path.length-1]);demoPts=pts;demoI=0}
+function runDemoTimer(){const speeds=[48,52,58,46,44];
+  if(!demoT)demoT=setInterval(()=>{if(mode!=='demo'||!demoPts.length)return;const[lat,lng]=demoPts[demoI%demoPts.length];const sp=speeds[Math.floor(demoI/60)%speeds.length];
+    onPos(lat,lng,sp/3.6,Date.now());demoI++},Math.round(12/(50/3.6)*1000))}
 $('demo').onclick=()=>{
   mode='demo';$('start').hidden=true;keepAwake();say('Recorrido de ejemplo');
   $('dot').className='dot demo';$('stxt').textContent='Recorrido de ejemplo';
-  demoFollow(null);const speeds=[48,52,58,46,44];
-  if(!demoT)demoT=setInterval(()=>{const[lat,lng]=demoPts[demoI%demoPts.length];const s=speeds[Math.floor(demoI/60)%speeds.length];
-    onPos(lat,lng,s/3.6,Date.now());demoI++},Math.round(12/(50/3.6)*1000));
-};
+  demoFollow(null);runDemoTimer()};
 renderList(true);setHud(null,0,CITY_LIMIT);$('shDist').textContent='—';$('shName').textContent='Esperando GPS…';
 })();
 </script>
