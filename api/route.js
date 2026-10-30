@@ -40,15 +40,19 @@ async function fetchRoute(key, from, to, type) {
     .filter((f) => f && f.geometry && f.properties)
     .map((f) => ({
       distance: Math.round(f.properties.distance), time: Math.round(f.properties.time), coords: toCoords(f.geometry),
-      steps: ((f.properties.legs || []).flatMap((l) => l.steps || []))
-        .map((st) => {
-          let t = String((st.instruction && st.instruction.text) || '');
-          const n = typeof st.name === 'string' ? st.name : '';
-          if (n && !t.toLowerCase().includes(n.toLowerCase())) t += ` (${n})`;
-          const lim = Number(st.speed_limit);
-          return { t: t.slice(0, 160), d: Math.round(st.distance || 0), lim: Number.isFinite(lim) && lim > 0 ? Math.round(lim) : 0 };
-        })
-        .filter((st) => st.t).slice(0, 80),
+      steps: (() => {
+        let acc = 0; // metros desde o início da rota até o começo de cada passo (antes de filtrar)
+        return ((f.properties.legs || []).flatMap((l) => l.steps || []))
+          .map((st) => {
+            let t = String((st.instruction && st.instruction.text) || '');
+            const n = typeof st.name === 'string' ? st.name : '';
+            if (n && !t.toLowerCase().includes(n.toLowerCase())) t += ` (${n})`;
+            const lim = Number(st.speed_limit), d = Number(st.distance) || 0, s = acc;
+            acc += d;
+            return { t: t.slice(0, 160), d: Math.round(d), s: Math.round(s), n: n.slice(0, 80), lim: Number.isFinite(lim) && lim > 0 ? Math.round(lim) : 0 };
+          })
+          .filter((st) => st.t).slice(0, 200);
+      })(),
     }))
     .filter((x) => x.coords.length > 1 && Number.isFinite(x.distance) && Number.isFinite(x.time));
 }
