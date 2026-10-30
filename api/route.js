@@ -3,7 +3,7 @@
 // si las dos salen iguales, devuelve solo una.
 const { requireAccess, geoapifyKey, parseLatLng } = require('./_lib/access');
 
-const MAX_KM = 300; // la app es para conducir en Navarra: evita rutas enormes que gastan cuota
+const MAX_KM = 800; // evita rutas enormes que gastan cuota
 
 function km(a, b) {
   const R = 6371, r = Math.PI / 180, x = (b.lat - a.lat) * r, y = (b.lng - a.lng) * r;
@@ -29,6 +29,7 @@ async function fetchRoute(key, from, to, type) {
   const u = new URL('https://api.geoapify.com/v1/routing');
   u.searchParams.set('waypoints', `${from.lat},${from.lng}|${to.lat},${to.lng}`);
   u.searchParams.set('mode', 'drive');
+  u.searchParams.set('lang', 'es');
   u.searchParams.set('type', type);
   u.searchParams.set('apiKey', key);
   const r = await fetch(u, { signal: AbortSignal.timeout(10000) });
@@ -36,7 +37,12 @@ async function fetchRoute(key, from, to, type) {
   const j = await r.json();
   return (j.features || [])
     .filter((f) => f && f.geometry && f.properties)
-    .map((f) => ({ distance: Math.round(f.properties.distance), time: Math.round(f.properties.time), coords: toCoords(f.geometry) }))
+    .map((f) => ({
+      distance: Math.round(f.properties.distance), time: Math.round(f.properties.time), coords: toCoords(f.geometry),
+      steps: ((f.properties.legs || []).flatMap((l) => l.steps || []))
+        .map((st) => ({ t: String((st.instruction && st.instruction.text) || '').slice(0, 140), d: Math.round(st.distance || 0) }))
+        .filter((st) => st.t).slice(0, 80),
+    }))
     .filter((x) => x.coords.length > 1 && Number.isFinite(x.distance) && Number.isFinite(x.time));
 }
 

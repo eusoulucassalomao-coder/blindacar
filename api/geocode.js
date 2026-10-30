@@ -1,5 +1,5 @@
 // GET /api/geocode?q=texto&lat=..&lng=..  (header Authorization: Bearer <access_token de Supabase>)
-// Sugerencias de destino (autocompletado de Geoapify), limitadas a España y priorizando la posición del usuario.
+// Sugerencias de destino (autocompletado de Geoapify), priorizando la posición del usuario.
 const { requireAccess, geoapifyKey } = require('./_lib/access');
 
 module.exports = async (req, res) => {
@@ -17,7 +17,6 @@ module.exports = async (req, res) => {
     u.searchParams.set('lang', 'es');
     u.searchParams.set('limit', '6');
     u.searchParams.set('format', 'json');
-    u.searchParams.set('filter', 'countrycode:es');
     const lat = Number(req.query.lat), lng = Number(req.query.lng);
     if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
       u.searchParams.set('bias', `proximity:${lng},${lat}`);

@@ -187,6 +187,11 @@ svg{display:block}
 .sheet.planning .sum,.sheet.planning .segs,.sheet.planning .acts{display:none}
 .sheet.planning .list{max-height:min(17vh,150px)}
 .sheet.routing .search{display:none}
+.search.from{margin-bottom:8px}.search.from input{font-size:14px;padding:10px 0}
+.steps{margin:2px 0 10px;background:var(--gxl);border-radius:14px;padding:8px 12px;font-size:12.5px;font-weight:600}
+.steps summary{cursor:pointer;font-weight:800;color:var(--g3)}
+.steps ol{margin:8px 0 2px;padding-left:20px;max-height:min(22vh,190px);overflow:auto;display:flex;flex-direction:column;gap:6px}
+.steps li span{color:var(--muted);white-space:nowrap}
 .halo{pointer-events:none}
 .mk.dest{--c:var(--ink)}
 
@@ -241,6 +246,11 @@ svg{display:block}
 
 <section class="sheet" id="sheet" aria-label="Avisos">
   <button class="handle" id="handle" type="button" aria-label="Mostrar u ocultar la lista de avisos"></button>
+  <div class="search from" id="searchFrom">
+    <span class="sic" data-ic="navigation" data-s="18"></span>
+    <input id="qf" type="search" placeholder="Desde: mi ubicación" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Punto de partida" aria-controls="sugs">
+    <button class="qx" id="qfx" type="button" aria-label="Usar mi ubicación" data-ic="x" data-s="18" hidden></button>
+  </div>
   <div class="search" id="search">
     <span class="sic" data-ic="search" data-s="20"></span>
     <input id="q" type="search" placeholder="¿A dónde vas?" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" aria-label="Buscar destino" aria-controls="sugs">
@@ -254,6 +264,7 @@ svg{display:block}
       <button class="del rclose" id="rClose" type="button" aria-label="Cancelar la ruta" data-ic="x" data-s="18"></button>
     </div>
     <div class="alts" id="alts"></div>
+    <details class="steps" id="steps"><summary>Paso a paso</summary><ol id="stepsList"></ol></details>
     <button class="btn" id="rStart" type="button" data-ic="navigation" data-s="20">Iniciar ruta</button>
   </div>
   <div class="sum">
@@ -565,7 +576,7 @@ async function api(path){
   if(!res.ok)throw new Error(j.error||'http_'+res.status);
   return j}
 const API_ERR={not_configured:'Las rutas aún no están configuradas en el servidor.',no_access:'Necesitas acceso para usar las rutas.',
-  no_token:'Vuelve a iniciar sesión.',invalid_token:'Vuelve a iniciar sesión.',too_far:'Destino demasiado lejos (máximo 300 km).',
+  no_token:'Vuelve a iniciar sesión.',invalid_token:'Vuelve a iniciar sesión.',too_far:'Destino demasiado lejos (máximo 800 km).',
   no_route:'No hay ruta en coche hasta ese destino.',upstream:'El servicio de rutas no responde. Inténtalo de nuevo.'};
 const apiErr = e => API_ERR[e.message]||'Sin conexión con el servicio de rutas.';
 
@@ -580,39 +591,51 @@ function showSugs(list){const ul=$('sugs');ul.innerHTML='';
   if(!list.length){sugMsg('Sin resultados. Prueba con otra calle o lugar.');return}
   list.forEach(s=>{const li=document.createElement('li'),b=document.createElement('button');b.type='button';b.setAttribute('role','option');
     b.innerHTML=`<span class="pin">${svg('pin',18)}</span><span style="min-width:0"><span class="n">${esc(s.name)}</span>${s.sub?`<span class="s">${esc(s.sub)}</span>`:''}</span>`;
-    b.onclick=()=>{$('q').blur();planRoute({name:s.name,lat:s.lat,lng:s.lng})};li.appendChild(b);ul.appendChild(li)});
+    b.onclick=()=>pickSug(s);li.appendChild(b);ul.appendChild(li)});
   const by=document.createElement('li');by.className='by';by.innerHTML='<a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>';ul.appendChild(by);
   ul.hidden=false;setSheetH()}
-async function runSearch(){const v=$('q').value.trim();if(v.length<3)return;const seq=++qSeq;const c=me||map.getCenter();
+// Punto de partida: null = mi GPS; si no, un lugar elegido en el campo "Desde"
+let origin=null,activeQ='q';
+function setOrigin(o){origin=o;$('qf').value=o?o.name:'';$('qfx').hidden=!o;
+  if(o)toast('Salida: '+o.name)}
+function pickSug(s){const place={name:s.name,lat:s.lat,lng:s.lng};$(activeQ).blur();
+  if(activeQ==='qf'){setOrigin(place);setSearching(false);if(route)planRoute(route.dest);else $('q').focus()}
+  else planRoute(place)}
+async function runSearch(){const el=$(activeQ),v=el.value.trim();if(v.length<3)return;const seq=++qSeq;const c=me||map.getCenter();
   try{const j=await api(`/api/geocode?q=${encodeURIComponent(v)}&lat=${c.lat.toFixed(4)}&lng=${c.lng.toFixed(4)}`);
     if(seq===qSeq&&sheet.classList.contains('searching'))showSugs(j.results||[])}
   catch(e){if(seq===qSeq)sugMsg(apiErr(e))}}
-$('q').addEventListener('focus',()=>{setSearching(true);if(route){$('q').select()}else if($('q').value.trim().length>=3)runSearch()});
-$('q').addEventListener('input',()=>{const v=$('q').value.trim();$('qx').hidden=!v;clearTimeout(qT);
-  if(v.length<3){qSeq++;$('sugs').hidden=true;setSheetH();return}
-  qT=setTimeout(runSearch,350)});
-$('q').addEventListener('keydown',e=>{
-  if(e.key==='Escape'){$('q').blur();setSearching(false)}
-  if(e.key==='Enter'){e.preventDefault();const b=$('sugs').hidden?null:$('sugs').querySelector('button');if(b)b.click();else{clearTimeout(qT);runSearch()}}});
-$('qx').onclick=()=>{$('q').value='';$('qx').hidden=true;qSeq++;$('sugs').hidden=true;$('q').focus();setSheetH()};
+[['q','qx'],['qf','qfx']].forEach(([id,xid])=>{
+  $(id).addEventListener('focus',()=>{activeQ=id;setSearching(true);if($(id).value.trim().length>=3&&!(id==='qf'&&origin))runSearch();else if(route||origin)$(id).select()});
+  $(id).addEventListener('input',()=>{activeQ=id;const v=$(id).value.trim();$(xid).hidden=!v;clearTimeout(qT);
+    if(id==='qf'&&!v&&origin)origin=null;
+    if(v.length<3){qSeq++;$('sugs').hidden=true;setSheetH();return}
+    qT=setTimeout(runSearch,350)});
+  $(id).addEventListener('keydown',e=>{
+    if(e.key==='Escape'){$(id).blur();setSearching(false)}
+    if(e.key==='Enter'){e.preventDefault();activeQ=id;const bt=$('sugs').hidden?null:$('sugs').querySelector('button');if(bt)bt.click();else{clearTimeout(qT);runSearch()}}});
+  $(xid).onclick=()=>{$(id).value='';$(xid).hidden=true;qSeq++;$('sugs').hidden=true;
+    if(id==='qf'){origin=null;toast('Salida: mi ubicación');if(route)planRoute(route.dest)}
+    $(id).focus();setSheetH()}});
 map.on('click',()=>{if(sheet.classList.contains('searching')){$('q').blur();setSearching(false)}});
 
 // Calcular la ruta (también para recalcular si el conductor se sale)
 async function planRoute(dest,opts={}){
   const nav=!!opts.nav;
-  if(!me){sugMsg('Esperando tu posición GPS para calcular la ruta…');return}
+  const start=(nav||!origin)?me:origin;
+  if(!start){sugMsg('Elige un punto de partida en «Desde» o activa el GPS.');return}
   const seq=++planSeq;
   if(!nav){setSearching(false);$('q').value=dest.name;$('qx').hidden=false;
     $('routeBox').hidden=false;sheet.classList.add('planning','routing');$('rIc').innerHTML=svg('flag',20);$('rDest').textContent=dest.name;
-    $('rMeta').textContent='Calculando ruta…';$('alts').innerHTML='';$('rStart').hidden=true;setSheetH()}
+    $('rMeta').textContent='Calculando ruta…';$('alts').innerHTML='';$('steps').hidden=true;$('rStart').hidden=true;setSheetH()}
   let j;
-  try{j=await api(`/api/route?from=${me.lat.toFixed(5)},${me.lng.toFixed(5)}&to=${(+dest.lat).toFixed(5)},${(+dest.lng).toFixed(5)}`)}
+  try{j=await api(`/api/route?from=${(+start.lat).toFixed(5)},${(+start.lng).toFixed(5)}&to=${(+dest.lat).toFixed(5)},${(+dest.lng).toFixed(5)}`)}
   catch(e){if(seq!==planSeq)return;if(nav)toast('No se pudo recalcular: '+apiErr(e));else $('rMeta').textContent=apiErr(e);return}
   if(seq!==planSeq)return;
   const alts=(j.routes||[]).filter(r=>Array.isArray(r.coords)&&r.coords.length>1);
   if(!alts.length){if(!nav)$('rMeta').textContent=API_ERR.no_route;return}
   route={dest,alts:alts.map(r=>({...r,geo:prepRoute(r.coords),n:0})),sel:0,nav,items:[],userAlong:0,offN:0,lastRe:Date.now()};
-  route.userAlong=project(route.alts[0].geo,me.lat,me.lng).along;
+  route.userAlong=(origin&&!nav)?0:(me?project(route.alts[0].geo,me.lat,me.lng).along:0);
   drawRoute();refreshRouteItems();renderRouteBox();renderList(true);
   if(nav){say('Ruta recalculada');return}
   fitRoute();
@@ -627,7 +650,7 @@ function drawRoute(){routeLayer.clearLayers();if(!route)return;
   L.polyline(a.coords,{color:'#10b981',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer);
   L.marker([route.dest.lat,route.dest.lng],{icon:icon('dest','flag'),interactive:false,zIndexOffset:500}).addTo(routeLayer)}
 function selectAlt(i){if(!route||i===route.sel||!route.alts[i])return;route.sel=i;
-  route.userAlong=me?project(route.alts[i].geo,me.lat,me.lng).along:0;
+  route.userAlong=(origin&&!route.nav)||!me?0:project(route.alts[i].geo,me.lat,me.lng).along;
   drawRoute();refreshRouteItems();renderRouteBox();renderList(true);if(!route.nav)fitRoute()}
 // Radares y avisos a menos de ROUTE_BUF_M del trazado, en el orden en que aparecen
 function onRoute(G){const out=[];
@@ -645,6 +668,8 @@ function renderRouteBox(){
   if(route.nav){const rem=Math.max(0,a.geo.len-route.userAlong),t=a.time*rem/Math.max(a.geo.len,1);
     $('rMeta').innerHTML=`<b>${fmtDur(t)}</b> · ${fmtDist(rem)} · llegada ${eta(t)}`}
   else $('rMeta').innerHTML=`<b>${fmtDur(a.time)}</b> · ${fmtDist(a.distance)} · ${nAvisos(a.n)} en la ruta`;
+  const st=$('steps'),sl=$('stepsList');sl.innerHTML='';const steps=a.steps||[];st.hidden=route.nav||!steps.length;
+  steps.forEach(x=>{const li=document.createElement('li');li.innerHTML=`${esc(x.t)} <span>${fmtDist(x.d)}</span>`;sl.appendChild(li)});
   const box=$('alts');box.innerHTML='';box.hidden=route.nav||route.alts.length<2;
   if(!box.hidden)route.alts.forEach((x,i)=>{const b=document.createElement('button');b.type='button';b.className='alt'+(i===route.sel?' on':'');
     b.setAttribute('aria-pressed',String(i===route.sel));
@@ -665,6 +690,7 @@ function renderRouteList(){
     ul.appendChild(li)})}
 $('rStart').onclick=()=>{if(!route)return;
   if(!me){toast('Esperando tu posición…');return}
+  if(origin){origin=null;$('qf').value='';$('qfx').hidden=true;toast('Iniciando desde tu ubicación…');planRoute(route.dest).then(()=>{if(route){route.nav=true;route.offN=0;follow=true;renderRouteBox();centerOn(me.lat,me.lng,17);renderList(true)}});return}
   route.nav=true;route.offN=0;follow=true;renderRouteBox();centerOn(me.lat,me.lng,17);
   const n=route.items.length;say(n?`Ruta iniciada. ${n===1?'Un aviso':n+' avisos'} en el camino`:'Ruta iniciada. Sin avisos en el camino');
   if(mode==='demo')demoFollow(route.alts[route.sel].coords);
