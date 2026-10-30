@@ -195,6 +195,24 @@ svg{display:block}
 .halo{pointer-events:none}
 .mk.dest{--c:var(--ink)}
 
+/* Navegación: próxima maniobra (arriba) y botón de vista completa */
+.man{position:fixed;z-index:22;top:calc(env(safe-area-inset-top,0px) + 12px);left:max(14px,env(safe-area-inset-left,0px));right:calc(max(14px,env(safe-area-inset-right,0px)) + 56px);
+  display:flex;align-items:center;gap:12px;background:linear-gradient(160deg,#059669,#047857);color:#fff;border-radius:18px;padding:9px 14px 9px 10px;box-shadow:var(--sh)}
+.man .mi{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.18);display:grid;place-items:center;flex:none}
+.man .tx{min-width:0;flex:1}
+.man .md{font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.man .mt{font-size:13px;font-weight:700;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.man .ms{font-size:11.5px;font-weight:600;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+body.navigating .top .pill{visibility:hidden}
+body.navigating .next{top:calc(env(safe-area-inset-top,0px) + 96px)}
+body.navigating .speed{top:calc(env(safe-area-inset-top,0px) + 96px)}
+body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
+#overview{position:fixed;z-index:20;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet-h,260px) + 70px)}
+#overview.on{background:var(--g2);color:#fff}
+.man{max-width:520px}
+/* En pantallas anchas el panel no tapa el lateral derecho: los botones van abajo, lejos del velocímetro */
+@media (min-width:700px){#center{bottom:24px}#overview{bottom:84px}}
+
 /* Aviso de estado sobre el mapa (sin acceso, lejos de Pamplona…) */
 .banner{position:fixed;z-index:25;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 192px);width:min(calc(100% - 28px),440px);
   display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 10px 10px 12px;box-shadow:var(--sh)}
@@ -226,6 +244,11 @@ svg{display:block}
   <button class="round" id="mute" type="button" aria-label="Activar o desactivar la voz"></button>
 </div>
 <button class="round" id="center" type="button" aria-label="Centrar en mi posición" data-ic="crosshair"></button>
+<button class="round" id="overview" type="button" aria-label="Ver la ruta completa" aria-pressed="false" data-ic="route" hidden></button>
+<div class="man" id="man" role="status" aria-live="polite" hidden>
+  <div class="mi" id="manIc"></div>
+  <div class="tx"><div class="md" id="manD">—</div><div class="mt" id="manT">—</div><div class="ms" id="manS"></div></div>
+</div>
 
 <div class="next" id="next" hidden>
   <div class="tile" id="nextIc"></div>
@@ -364,6 +387,10 @@ const ICONS = {
   x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   pin:'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+  turnL:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5V20"/>',
+  turnR:'<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5V20"/>',
+  straight:'<path d="M12 20V4"/><path d="m5 11 7-7 7 7"/>',
+  round:'<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>',
   route:'<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>'
 };
 const svg = (n,s=20) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
@@ -645,7 +672,8 @@ function drawRoute(){routeLayer.clearLayers();if(!route)return;
     L.polyline(a.coords,{color:'#94a3b8',weight:7,opacity:.8,lineCap:'round'}).on('click',()=>selectAlt(i)).addTo(routeLayer)});
   const a=route.alts[route.sel];
   L.polyline(a.coords,{color:'#fff',weight:13,interactive:false,lineCap:'round'}).addTo(routeLayer);
-  L.polyline(a.coords,{color:'#10b981',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer);
+  route.lineDone=L.polyline([],{color:'#94a3b8',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer); // ya recorrido
+  route.lineTodo=L.polyline(a.coords,{color:'#10b981',weight:7,interactive:false,lineCap:'round'}).addTo(routeLayer); // lo que falta
   L.marker([route.dest.lat,route.dest.lng],{icon:icon('dest','flag'),interactive:false,zIndexOffset:500}).addTo(routeLayer)}
 function selectAlt(i){if(!route||i===route.sel||!route.alts[i])return;route.sel=i;
   route.userAlong=(origin&&!route.nav)||!me?0:project(route.alts[i].geo,me.lat,me.lng).along;
@@ -660,6 +688,9 @@ function refreshRouteItems(){haloLayer.clearLayers();if(!route)return;
   route.items.forEach(it=>L.circleMarker([it.ref.lat,it.ref.lng],{radius:25,color:'#047857',weight:3,fillColor:'#34d399',fillOpacity:.22,interactive:false,className:'halo'}).addTo(haloLayer));
   renderRouteBox()}
 function renderRouteBox(){
+  document.body.classList.toggle('navigating',!!route&&route.nav);
+  $('overview').hidden=!route;if(!route&&overview)setOverview(false,true);
+  if(!route||!route.nav)$('man').hidden=true;
   if(!route){$('routeBox').hidden=true;sheet.classList.remove('planning','routing');setSheetH();return}
   $('routeBox').hidden=false;$('rIc').innerHTML=svg('flag',20);$('rDest').textContent=route.dest.name;
   const a=route.alts[route.sel];
@@ -718,8 +749,43 @@ function routeTick(lat,lng,now){
     if(p.off>OFF_ROUTE_M){route.offN++;
       if(route.offN>=3&&now-route.lastRe>REROUTE_MS){route.lastRe=now;route.offN=0;toast('Fuera de la ruta: recalculando…');planRoute(route.dest,{nav:true})}}
     else route.offN=0;
+    updateProgress();route.lim=renderMan(a,now);
     renderRouteBox()}
   return best}
+
+// Trazado: parte recorrida en gris y lo que falta en verde
+function updateProgress(){if(!route||!route.lineTodo)return;
+  const a=route.alts[route.sel],G=a.geo,co=a.coords,al=Math.max(0,Math.min(route.userAlong||0,G.len));
+  let lo=0,hi=G.cum.length-1;while(lo<hi-1){const m=(lo+hi)>>1;if(G.cum[m]<=al)lo=m;else hi=m}
+  const seg=G.cum[lo+1]-G.cum[lo],t=seg>0?(al-G.cum[lo])/seg:0,b=co[Math.min(lo+1,co.length-1)];
+  const pt=[co[lo][0]+(b[0]-co[lo][0])*t,co[lo][1]+(b[1]-co[lo][1])*t];
+  route.lineDone.setLatLngs(co.slice(0,lo+1).concat([pt]));route.lineTodo.setLatLngs([pt].concat(co.slice(lo+1)))}
+
+// Paso a paso en vivo: próxima maniobra, calle actual y aviso por voz
+function stepState(a,along){const st=a.steps||[];if(!st.length||st[0].s==null)return null;
+  const last=st[st.length-1],k=a.geo.len/Math.max(1,last.s+last.d); // ajusta las distancias de Geoapify a la geometría dibujada
+  let i=0;while(i+1<st.length&&st[i+1].s*k<=along)i++;
+  const nx=st[i+1]||null;return {i,cur:st[i],next:nx,d:nx?nx.s*k-along:a.geo.len-along}}
+function manIcon(t){t=t.toLowerCase();return /rotonda/.test(t)?'round':/izquierda/.test(t)?'turnL':/derecha/.test(t)?'turnR':/destino|llegad/.test(t)?'flag':'straight'}
+const lcFirst=t=>t.charAt(0).toLowerCase()+t.slice(1);
+function renderMan(a,now){const el=$('man');const ss=stepState(a,route.userAlong);if(!ss){el.hidden=true;return 0}
+  const t=ss.next?ss.next.t:'Llegada a tu destino',d=Math.max(0,ss.d);
+  el.hidden=false;$('manIc').innerHTML=svg(ss.next?manIcon(t):'flag',24);
+  $('manD').textContent=fmtDist(d);$('manT').textContent=t;$('manS').textContent=ss.cur.n?'Por '+ss.cur.n:'';
+  if(ss.next){route.said=route.said||{};const k='m'+(ss.i+1);
+    if(d<260&&d>120&&!route.said[k+'a']){route.said[k+'a']=now;say(`En ${Math.round(d/50)*50} metros, ${lcFirst(t)}`)}
+    else if(d<45&&!route.said[k+'b']){route.said[k+'a']=route.said[k+'b']=now;say(t)}}
+  return ss.cur.lim||0}
+
+// Vista completa del trayecto (también durante la navegación)
+let overview=false;
+function setOverview(on,silent){overview=on;$('overview').classList.toggle('on',on);$('overview').setAttribute('aria-pressed',String(on));
+  if(silent)return;
+  if(on)fitRoute();else{follow=true;if(me)centerOn(me.lat,me.lng,route&&route.nav?navZoom(lastKmh):null,true)}}
+$('overview').onclick=()=>setOverview(!overview);
+// Zoom según la velocidad: más lejos en carretera, más cerca en ciudad
+let lastKmh=0;
+const navZoom=k=>k>90?14:k>60?15:k>30?16:17;
 
 // ---------- Posición, velocidad y avisos por voz ----------
 let me=null, meMarker=null, follow=true, prev=null, alerted={}, overT=0, mode=null;
@@ -728,7 +794,7 @@ map.on('dragstart',()=>follow=false);
 function centerOn(lat,lng,zoom,animate){const z=zoom??Math.max(map.getZoom(),16);
   const shift=Math.max(0,(sheet.offsetHeight||0)/2-40);
   map.setView(map.unproject(map.project([lat,lng],z).add([0,shift]),z),z,{animate:!!animate})}
-$('center').onclick=()=>{follow=true;if(me)centerOn(me.lat,me.lng)};
+$('center').onclick=()=>{if(overview){setOverview(false);return}follow=true;if(me)centerOn(me.lat,me.lng,route&&route.nav?navZoom(lastKmh):null,true)};
 
 const RING=289;
 function setHud(best,kmh,lim,far){
@@ -753,7 +819,8 @@ function onPos(lat,lng,speedMs,ts){
   const firstFix=!me;
   prev={lat,lng,ts};me={lat,lng};kmh=Math.max(0,Math.min(kmh||0,250));
   if(!meMarker)meMarker=L.marker([lat,lng],{icon:meIcon,zIndexOffset:1000}).addTo(map);else meMarker.setLatLng([lat,lng]);
-  if(follow)centerOn(lat,lng,null,true);
+  lastKmh=kmh;
+  if(follow)centerOn(lat,lng,route&&route.nav?navZoom(kmh):null,true);
 
   // Con ruta: solo cuenta lo que está en el trayecto, por distancia de ruta. Sin ruta: lo más cercano en línea recta.
   const now=Date.now();let best=null;
@@ -771,7 +838,8 @@ function onPos(lat,lng,speedMs,ts){
   const far=radars.length>0&&nearest>FAR_M;
   if(far&&!bannerKind&&now>farSnooze)showBanner('far');else if(!far&&bannerKind==='far')hideBanner();
 
-  const lim = (best&&best.lim&&best.d<500)?best.lim:CITY_LIMIT;
+  // Límite: radar cercano > límite del tramo de la ruta (Geoapify) > 50 en ciudad
+  const lim = (best&&best.lim&&best.d<500)?best.lim:(route&&route.nav&&route.lim)||CITY_LIMIT;
   // En la primera posición la lista se reordena ya (antes podía quedarse sin distancias si el usuario estaba parado)
   setHud(best,kmh,lim,far);renderList(firstFix);
   const over=kmh>lim+7;$('speed').classList.toggle('over',over);
