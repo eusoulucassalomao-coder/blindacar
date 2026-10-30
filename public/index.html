@@ -127,8 +127,8 @@ svg{display:block}
 .act.a{--c1:#fb923c;--c2:#ea580c;--c3:#9a3412;--sc:rgba(234,88,12,.5)}
 .act:focus-visible,.btn:focus-visible,.round:focus-visible,.del:focus-visible,.handle:focus-visible{outline:3px solid var(--g2);outline-offset:3px}
 .btn{width:100%;border-radius:18px;padding:16px 18px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px;--c1:var(--g1);--c2:var(--g2);--c3:var(--g3);--sc:rgba(16,185,129,.55);margin-bottom:6px}
-#vReady,#vPay,#vLogin{display:flex;flex-direction:column;gap:16px}
-#vReady .btn,#vPay .btn,#vLogin .btn{margin:0}
+#vReady,#vPay,#vLogin,#vErr{display:flex;flex-direction:column;gap:16px}
+#vReady .btn,#vPay .btn,#vLogin .btn,#vErr .btn{margin:0}
 .btn.ghost{--c1:#fff;--c2:#f1f5f9;--c3:#cbd5e1;--sc:rgba(15,23,42,.18);color:var(--ink);text-shadow:none}
 .btn.ghost::before{background:linear-gradient(rgba(255,255,255,.9),rgba(255,255,255,0))}
 .btn:disabled{opacity:.6;pointer-events:none}
@@ -149,6 +149,19 @@ svg{display:block}
 .views p{margin:0;font-size:14px;line-height:1.5;color:#334155;font-weight:600}
 .small{font-size:11.5px;color:var(--muted);line-height:1.55;font-weight:500}
 .gicon{width:22px;height:22px;flex:none}
+
+/* Aviso de estado sobre el mapa (sin acceso, lejos de Pamplona…) */
+.banner{position:fixed;z-index:25;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 192px);width:min(calc(100% - 28px),440px);
+  display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 10px 10px 12px;box-shadow:var(--sh)}
+.banner .tile{width:38px;height:38px;border-radius:12px;background:linear-gradient(160deg,#fbbf24,#d97706)}
+.banner .tx{flex:1;min-width:0;font-size:12px;color:var(--muted);font-weight:600;line-height:1.35}
+.banner .tx b{display:block;color:var(--ink);font-size:13.5px;font-weight:800}
+.btn.sm{width:auto;flex:none;border-radius:14px;padding:10px 14px;font-size:13px;margin:0;box-shadow:0 4px 0 var(--c3),0 10px 16px -6px var(--sc),inset 0 2px 0 rgba(255,255,255,.5)}
+.btn.sm:active{transform:translateY(3px);box-shadow:0 1px 0 var(--c3),inset 0 2px 0 rgba(255,255,255,.4)}
+.note{background:#fff7ed;color:#9a3412;border-radius:14px;padding:10px 12px;font-size:13px;font-weight:600;line-height:1.45;text-align:left}
+.note b{color:#7c2d12}
+.lh .sub{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:1px}
+.list li.info{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.45;background:#fff;border-radius:14px;padding:8px 12px;border:1.5px dashed #a7f3d0}
 
 .toast{position:fixed;z-index:200;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h,260px) + 24px);
   background:var(--ink);color:#fff;border-radius:14px;padding:11px 16px;font-weight:700;font-size:13px;max-width:90%;text-align:center;box-shadow:var(--sh)}
@@ -180,6 +193,12 @@ svg{display:block}
 </div>
 <div class="limit" id="limit" aria-label="Límite de velocidad">50</div>
 
+<div class="banner" id="banner" role="status" hidden>
+  <div class="tile" id="bnIc"></div>
+  <div class="tx"><b id="bnT"></b><span id="bnD"></span></div>
+  <button class="btn sm" id="bnBtn" type="button"></button>
+</div>
+
 <section class="sheet" id="sheet" aria-label="Avisos">
   <button class="handle" id="handle" type="button" aria-label="Mostrar u ocultar la lista de avisos"></button>
   <div class="sum">
@@ -196,7 +215,7 @@ svg{display:block}
   <div class="segs" id="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
   <div class="listwrap">
-    <div class="lh"><span>Avisos cerca</span><span class="chip" id="listCount">0</span></div>
+    <div class="lh"><span id="lhT">Cerca de ti<span class="sub" id="lhS">Avisos de la comunidad: duran 10 min</span></span><span class="chip" id="listCount">0 avisos</span></div>
     <ul class="list" id="list"></ul>
   </div>
 
@@ -226,9 +245,17 @@ svg{display:block}
         <p class="small" style="margin-top:10px">Inicia sesión para comprar o recuperar tu acceso.</p>
       </div>
       <div id="vPay" hidden>
-        <p>Hola, <b id="who"></b>.<br>Acceso completo con <b>pago único</b>: radares, avisos en tiempo real y aviso por voz.</p>
-        <button class="btn" id="buy" type="button" style="margin-top:12px">Comprar acceso</button>
+        <p>Hola, <b id="who"></b>.</p>
+        <div class="note">Esta cuenta <b>todavía no tiene acceso</b>. Por eso no verás radares ni avisos: el servidor solo los muestra a cuentas con el acceso activado.</div>
+        <p>Acceso completo con <b>pago único</b>: radares, avisos en tiempo real, rutas y aviso por voz.</p>
+        <button class="btn" id="buy" type="button">Comprar acceso</button>
         <button class="btn ghost" id="logout1" type="button">Salir</button>
+        <p class="small">¿Ya pagaste con otra cuenta de Google? Sal y entra con esa cuenta.</p>
+      </div>
+      <div id="vErr" hidden>
+        <div class="note">No hemos podido comprobar tu acceso. Revisa tu conexión e inténtalo de nuevo.</div>
+        <button class="btn" id="retry" type="button">Reintentar</button>
+        <button class="btn ghost" id="logout3" type="button">Salir</button>
       </div>
       <div id="vReady" hidden>
         <button class="btn" id="go" type="button" data-ic="navigation" data-s="20">Empezar a conducir</button>
@@ -256,6 +283,7 @@ const RADAR_ALERT_M = 400, REPORT_ALERT_M = 300; // distancias de aviso en METRO
 const REALERT_MS = 3 * 60 * 1000;
 const CITY_LIMIT = 50;
 const NEAR_M = 1500;
+const FAR_M = 20000;                             // a más de 20 km del radar más cercano: fuera de la zona
 
 // ---------- Iconos (SVG en línea) ----------
 const ICONS = {
@@ -321,10 +349,28 @@ const fixes = store.get('rn_fixes',{});
 let radars = [];
 async function loadRadars(){
   const {data,error}=await sb.from('radars').select('id,name,lat,lng,speed_limit,verified');
-  if(error){toast('No se pudieron cargar los radares');return}
+  if(error){showBanner('load');return}
   radars=data.map(r=>({id:r.id,name:r.name,lat:fixes[r.id]?.[0]??r.lat,lng:fixes[r.id]?.[1]??r.lng,lim:r.speed_limit,fixed:!!fixes[r.id],verified:r.verified}));
+  // Con RLS, una cuenta sin acceso recibe una lista vacía (sin error): hay que decirlo
+  if(!radars.length)showBanner('empty');else if(bannerKind==='load'||bannerKind==='empty')hideBanner();
   drawRadars();renderList(true);
 }
+function radarBounds(){return radars.length?L.latLngBounds(radars.map(r=>[r.lat,r.lng])):null}
+function showPamplona(){follow=false;const b=radarBounds();
+  if(b)map.fitBounds(b,{paddingTopLeft:[24,200],paddingBottomRight:[24,(sheet.offsetHeight||260)+24],maxZoom:15});else map.setView([42.8125,-1.6458],13)}
+
+// ---------- Aviso de estado sobre el mapa ----------
+let bannerKind=null, farSnooze=0;
+const BANNERS = {
+  far:  {t:'No hay radares cerca de aquí',d:'Blindacar cubre Pamplona y alrededores. Fuera de esa zona el mapa estará vacío.',b:'Ver Pamplona',
+         go:()=>{farSnooze=Date.now()+5*60*1000;hideBanner();showPamplona()}},
+  empty:{t:'No se ve ningún radar',d:'El servidor no ha devuelto radares: puede que tu cuenta no tenga el acceso activado.',b:'Reintentar',go:()=>loadRadars()},
+  load: {t:'No se pudieron cargar los radares',d:'Revisa tu conexión a internet.',b:'Reintentar',go:()=>loadRadars()},
+};
+function showBanner(k){const b=BANNERS[k];if(!b)return;bannerKind=k;$('bnIc').innerHTML=svg('alert',20);
+  $('bnT').textContent=b.t;$('bnD').textContent=b.d;$('bnBtn').textContent=b.b;$('banner').hidden=false}
+function hideBanner(){bannerKind=null;$('banner').hidden=true}
+$('bnBtn').onclick=()=>{const b=BANNERS[bannerKind];if(b)b.go()};
 const radarLayer = L.layerGroup().addTo(map);
 function drawRadars(){radarLayer.clearLayers();radars.forEach(r=>{
   const m=L.marker([r.lat,r.lng],{icon:icon('r','gauge')}).addTo(radarLayer);
@@ -345,7 +391,7 @@ function drawReports(){reportLayer.clearLayers();const now=Date.now();
   reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
     L.marker([r.lat,r.lng],{icon:icon(r.t,t.ic)}).addTo(reportLayer)
      .bindPopup(()=>{const d=document.createElement('div');d.className='pop';
-       d.innerHTML=`<b>${t.label}</b><small>Avisado ${ago(r.ts)}${isOwn(r)?' · tuyo':''}</small>`;
+       d.innerHTML=`<b>${t.label}</b><small>Avisado ${esc(repMeta(r))}</small>`;
        if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
        return d})});
   renderList(true);}
@@ -393,18 +439,24 @@ $('rp').onclick=()=>report('p');$('rb').onclick=()=>report('b');$('ra').onclick=
 
 // ---------- Panel: lista de avisos ----------
 let lastList=0;
+function repMeta(r){const left=Math.max(1,Math.ceil((REPORT_TTL-(Date.now()-r.ts))/60000));
+  return ago(r.ts)+' · caduca en '+left+' min'+(isOwn(r)?' · tuyo':'')}
+function addInfo(ul,t){const li=document.createElement('li');li.className='info';li.textContent=t;ul.appendChild(li)}
 function renderList(force){
   const now=Date.now();if(!force&&now-lastList<3000)return;lastList=now;
   const items=[];
   reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
-    items.push({id:r.id,k:'rep',t:r.t,name:t.label,ic:t.ic,ts:r.ts,own:isOwn(r),d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:ago(r.ts)+(isOwn(r)?' · tuyo':'')})});
+    items.push({id:r.id,k:'rep',t:r.t,name:t.label,ic:t.ic,ts:r.ts,own:isOwn(r),d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:repMeta(r)})});
   radars.forEach(r=>items.push({id:r.id,k:'rad',t:'r',name:r.name,ic:'gauge',own:false,d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:'Radar fijo · '+r.lim+' km/h'}));
   if(me)items.sort((a,b)=>a.d-b.d);
   else items.sort((a,b)=>(a.k===b.k?(b.ts||0)-(a.ts||0):(a.k==='rep'?-1:1)));
   const shown=items.slice(0,8);
-  $('listCount').textContent=reports.length;
+  $('lhT').firstChild.textContent='Cerca de ti';$('lhS').textContent='Avisos de la comunidad: duran 10 min';
+  $('listCount').textContent=reports.length===1?'1 aviso':reports.length+' avisos';
   const ul=$('list');ul.innerHTML='';
-  if(!shown.length){const li=document.createElement('li');li.className='empty';li.textContent='Aún no hay avisos. Cuando alguien avise, aparecerá aquí durante 10 minutos.';ul.appendChild(li);return}
+  // Los avisos caducan a los 10 min: lo normal es que la lista de avisos esté vacía
+  if(!reports.length)addInfo(ul,'Ahora no hay avisos de la comunidad. Cada aviso se ve solo 10 minutos; los radares fijos siempre aparecen.');
+  if(!shown.length&&hasAccess)addInfo(ul,'No se ha cargado ningún radar todavía.');
   shown.forEach(it=>{
     const li=document.createElement('li');li.className='row';
     li.innerHTML=`<div class="tile ${it.t}">${svg(it.ic,18)}</div><div class="tx"><div class="n">${esc(it.name)}</div><div class="m">${esc(it.meta)}</div></div><div class="dd">${it.d==null?'':fmtDist(it.d)}</div>`;
@@ -418,13 +470,15 @@ map.on('dragstart',()=>follow=false);
 $('center').onclick=()=>{follow=true;if(me)map.setView([me.lat,me.lng],Math.max(map.getZoom(),16))};
 
 const RING=289;
-function setHud(best,kmh,lim){
+function setHud(best,kmh,lim,far){
   if(best){
     $('next').hidden=false;$('nextIc').className='tile '+best.cls;$('nextIc').innerHTML=svg(best.ic,22);
     $('nextT').textContent=best.title+' a '+fmtDist(best.d);$('nextD').textContent=best.sub;
     $('shDist').textContent=fmtDist(best.d);$('shName').textContent=best.title+' · '+best.sub;
   }else{
-    $('next').hidden=true;$('shDist').textContent='Vía libre';$('shName').textContent='Sin avisos a menos de '+fmtDist(NEAR_M);
+    $('next').hidden=true;
+    if(far){$('shDist').textContent='Fuera de zona';$('shName').textContent='No hay radares cerca de aquí (zona: Pamplona)'}
+    else{$('shDist').textContent='Vía libre';$('shName').textContent='Sin avisos a menos de '+fmtDist(NEAR_M)}
   }
   const n=best?Math.max(1,Math.ceil((1-Math.min(best.d,NEAR_M)/NEAR_M)*4)):0;
   [...$('segs').children].forEach((s,i)=>s.classList.toggle('on',i<n));
@@ -435,6 +489,7 @@ function setHud(best,kmh,lim){
 function onPos(lat,lng,speedMs,ts){
   let kmh = (speedMs!=null&&speedMs>=0)?speedMs*3.6:null;
   if(kmh==null&&prev){const dt=(ts-prev.ts)/1000;if(dt>0)kmh=dist(prev.lat,prev.lng,lat,lng)/dt*3.6}
+  const firstFix=!me;
   prev={lat,lng,ts};me={lat,lng};kmh=Math.max(0,Math.min(kmh||0,250));
   if(!meMarker)meMarker=L.marker([lat,lng],{icon:meIcon,zIndexOffset:1000}).addTo(map);else meMarker.setLatLng([lat,lng]);
   if(follow)map.setView([lat,lng],Math.max(map.getZoom(),16),{animate:true});
@@ -447,28 +502,36 @@ function onPos(lat,lng,speedMs,ts){
     if(d<NEAR_M&&(!best||d<best.d))best={d,title:t.label,sub:ago(r.ts),ic:t.ic,cls:r.t};
     if(d<REPORT_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}});
 
+  // ¿Está el usuario fuera de la zona con radares (Pamplona)?
+  let nearest=Infinity;radars.forEach(r=>{nearest=Math.min(nearest,dist(lat,lng,r.lat,r.lng))});
+  const far=radars.length>0&&nearest>FAR_M;
+  if(far&&!bannerKind&&now>farSnooze)showBanner('far');else if(!far&&bannerKind==='far')hideBanner();
+
   const lim = (best&&best.lim&&best.d<500)?best.lim:CITY_LIMIT;
-  setHud(best,kmh,lim);renderList(false);
+  // En la primera posición la lista se reordena ya (antes podía quedarse sin distancias si el usuario estaba parado)
+  setHud(best,kmh,lim,far);renderList(firstFix);
   const over=kmh>lim+7;$('speed').classList.toggle('over',over);
   if(over&&now-overT>30000){overT=now;say('Exceso de velocidad')}
 }
 
 // ---------- Cuenta y acceso ----------
 let hasAccess=false, session=null;
-function setView(v){['vLoading','vLogin','vPay','vReady'].forEach(id=>$(id).hidden=(id!==v));}
+function setView(v){['vLoading','vLogin','vPay','vReady','vErr'].forEach(id=>$(id).hidden=(id!==v));}
 async function refreshAccess(){
   const {data:{session:s}}=await sb.auth.getSession();session=s;
   if(!s){hasAccess=false;setView('vLogin');return}
   $('who').textContent=s.user.email||'';
   const {data,error}=await sb.from('profiles').select('has_access').eq('id',s.user.id).maybeSingle();
-  if(error){toast('Error al comprobar tu acceso');setView('vLogin');return}
+  // Antes volvía a "Entrar con Google" aunque la sesión fuera válida: ahora se explica y se puede reintentar
+  if(error){hasAccess=false;setView('vErr');return}
   hasAccess=!!(data&&data.has_access);
   setView(hasAccess?'vReady':'vPay');
   if(hasAccess){await loadRadars();await pull();subscribeRealtime()}
 }
 $('gLogin').onclick=()=>sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});
 async function logout(){await sb.auth.signOut();location.href=location.pathname}
-$('logout1').onclick=logout;$('logout2').onclick=logout;
+$('logout1').onclick=logout;$('logout2').onclick=logout;$('logout3').onclick=logout;
+$('retry').onclick=()=>{setView('vLoading');refreshAccess()};
 $('buy').onclick=async()=>{
   if(!session)return;$('buy').disabled=true;
   try{
