@@ -308,15 +308,13 @@ svg{display:block}
           <svg class="gicon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
           Entrar con Google
         </button>
-        <p class="small" style="margin-top:10px">Inicia sesión para comprar o recuperar tu acceso.</p>
+        <p class="small" style="margin-top:10px">Gratis. Inicia sesión con Google para ver radares, avisos y rutas.</p>
       </div>
       <div id="vPay" hidden>
         <p>Hola, <b id="who"></b>.</p>
-        <div class="note">Esta cuenta <b>todavía no tiene acceso</b>. Por eso no verás radares ni avisos: el servidor solo los muestra a cuentas con el acceso activado.</div>
-        <p>Acceso completo con <b>pago único</b>: radares, avisos en tiempo real, rutas y aviso por voz.</p>
-        <button class="btn" id="buy" type="button">Comprar acceso</button>
+        <div class="note">Tu cuenta <b>todavía no está activada</b>. Por eso aún no verás radares ni avisos. Inténtalo de nuevo en unos segundos.</div>
+        <button class="btn" id="retry2" type="button">Reintentar</button>
         <button class="btn ghost" id="logout1" type="button">Salir</button>
-        <p class="small">¿Ya pagaste con otra cuenta de Google? Sal y entra con esa cuenta.</p>
       </div>
       <div id="vErr" hidden>
         <div class="note">No hemos podido comprobar tu acceso. Revisa tu conexión e inténtalo de nuevo.</div>
@@ -798,26 +796,10 @@ $('gLogin').onclick=()=>sb.auth.signInWithOAuth({provider:'google',options:{redi
 async function logout(){await sb.auth.signOut();location.href=location.pathname}
 $('logout1').onclick=logout;$('logout2').onclick=logout;$('logout3').onclick=logout;
 $('retry').onclick=()=>{setView('vLoading');refreshAccess()};
-$('buy').onclick=async()=>{
-  if(!session)return;$('buy').disabled=true;
-  try{
-    const res=await fetch('/api/checkout',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
-    const j=await res.json();
-    if(j.url)location.href=j.url;
-    else if(j.already){await refreshAccess()}
-    else toast('No se pudo iniciar el pago');
-  }catch(e){toast('Sin conexión')}
-  $('buy').disabled=false;
-};
+$('retry2').onclick=()=>{setView('vLoading');refreshAccess()};
 sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT'){hasAccess=false;setView('vLogin')}});
 (async()=>{
   await refreshAccess();
-  // Tras pagar, el webhook de Stripe tarda unos segundos en activar el acceso
-  if(new URLSearchParams(location.search).get('paid')==='1'&&!hasAccess){
-    toast('Confirmando tu pago…');
-    for(let i=0;i<15&&!hasAccess;i++){await new Promise(r=>setTimeout(r,2000));await refreshAccess()}
-    if(hasAccess)toast('¡Acceso activado!');else toast('El pago puede tardar un poco. Recarga en un minuto.');
-  }
   if(location.search)history.replaceState(null,'',location.pathname);
 })();
 
