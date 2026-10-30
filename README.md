@@ -19,6 +19,8 @@ Proyecto Supabase ya creado: `blindacar` (ref `nbvuvslfltzjuemrbhau`, región Pa
 1. Sube esta carpeta a un repositorio de GitHub e impórtalo en Vercel (o `vercel deploy`).
 2. Settings > Environment Variables: crea las de `.env.example`
    (`SUPABASE_SERVICE_ROLE_KEY` está en Supabase > Project Settings > API; es SECRETA, nunca en el HTML).
+   `GEOAPIFY_API_KEY` (rutas y búsqueda de destino): crea una cuenta en geoapify.com > Projects > API key. Es SECRETA:
+   solo la usan `/api/route` y `/api/geocode`, nunca el navegador. Sin ella, la app funciona pero sin rutas.
 3. Redeploy tras añadir las variables.
 
 ## Notas
@@ -26,4 +28,5 @@ Proyecto Supabase ya creado: `blindacar` (ref `nbvuvslfltzjuemrbhau`, región Pa
 - El acceso se activa solo desde el webhook de Stripe; el cliente no puede modificar `has_access`.
 - Límite de 1 aviso por minuto por usuario, reforzado en la base de datos.
 - Los avisos se muestran 10 min; los más antiguos de 1 h se pueden borrar con `select public.purge_old_reports();` (programable con pg_cron).
+- Rutas (Geoapify, plan gratuito con uso comercial y atribución «Powered by Geoapify»): se marcan los radares y avisos a menos de 100 m del trayecto. `/api/route` y `/api/geocode` solo responden a cuentas con acceso.
 - Pendiente: coordenadas reales de las cabinas (hoy aproximadas, `verified=false` en la tabla `radars`).
