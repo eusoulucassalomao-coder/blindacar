@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#ecfdf5">
+<title>Blindacar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --bg:#ecfdf5; --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --card:#fff;
+  --g1:#34d399; --g2:#10b981; --g3:#047857; --gsoft:#d1fae5; --gxl:#ecfdf5;
+  --police:#2563eb; --ctrl:#dc2626; --crash:#ea580c;
+  --sh:0 12px 32px -8px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.08);
+  --font:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+button{font-family:inherit}
+[hidden]{display:none!important}
+svg{display:block}
+
+/* Mapa */
+#map{position:fixed;inset:0;z-index:0;background:#eef2f1}
+.leaflet-bottom{bottom:var(--sheet-h,0px)!important}
+.leaflet-control-attribution{font:500 9px var(--font)!important;background:rgba(255,255,255,.8)!important;color:var(--muted)!important;border-radius:8px 0 0 0}
+.leaflet-control-attribution a{color:var(--muted)!important}
+.leaflet-popup-content-wrapper{border-radius:16px;box-shadow:var(--sh)}
+.leaflet-popup-content{font:500 13px var(--font);margin:12px 14px}
+.pop b{display:block;font-size:14px;margin-bottom:2px}
+.pop small{color:var(--muted)}
+.pop button{margin-top:10px;border:0;border-radius:10px;padding:8px 12px;background:var(--gxl);color:var(--g3);font:700 12px var(--font);cursor:pointer}
+.pop button.danger{background:#fee2e2;color:#b91c1c}
+
+/* Marcadores */
+.mk{--c:var(--g2);width:36px;height:36px;border-radius:50%;background:#fff;border:3px solid var(--c);color:var(--c);display:grid;place-items:center;box-shadow:0 6px 14px -2px rgba(15,23,42,.35)}
+.mk.p{--c:var(--police)} .mk.b{--c:var(--ctrl)} .mk.a{--c:var(--crash)}
+.me{position:relative;width:22px;height:22px;border-radius:50%;background:var(--g2);border:4px solid #fff;box-shadow:0 4px 10px rgba(4,120,87,.5)}
+.me::after{content:"";position:absolute;inset:-14px;border-radius:50%;background:rgba(16,185,129,.25);animation:ping 2s ease-out infinite}
+@keyframes ping{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.2);opacity:0}}
+
+/* Barra superior */
+.top{position:fixed;z-index:20;top:calc(env(safe-area-inset-top,0px) + 12px);left:max(14px,env(safe-area-inset-left,0px));right:max(14px,env(safe-area-inset-right,0px));
+  display:flex;align-items:flex-start;gap:10px;pointer-events:none}
+.top>*{pointer-events:auto}
+.pill{display:flex;align-items:center;gap:10px;background:#fff;border-radius:999px;padding:8px 16px 8px 12px;box-shadow:var(--sh)}
+.pill .brand{font-weight:800;font-size:15px;letter-spacing:-.01em;line-height:1.1}
+.pill .brand b{color:var(--g2)}
+.pill .st{font-size:11px;color:var(--muted);font-weight:600;line-height:1.1;margin-top:2px}
+.dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;flex:none}
+.dot.on{background:var(--g2);box-shadow:0 0 0 4px rgba(16,185,129,.2)} .dot.demo{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.2)}
+.spacer{flex:1}
+.round{width:46px;height:46px;border-radius:50%;border:0;background:#fff;color:var(--ink);display:grid;place-items:center;box-shadow:var(--sh);cursor:pointer;transition:transform .1s}
+.round:active{transform:scale(.94)}
+.round.off{color:var(--muted)}
+#center{position:fixed;z-index:20;right:max(14px,env(safe-area-inset-right,0px));bottom:calc(var(--sheet-h,260px) + 14px)}
+
+/* Aviso próximo (tarjeta flotante) */
+.next{position:fixed;z-index:20;left:max(14px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 74px);
+  max-width:min(300px,calc(100% - 170px));display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 14px 10px 10px;box-shadow:var(--sh)}
+.tile{width:42px;height:42px;border-radius:13px;flex:none;display:grid;place-items:center;color:#fff;background:linear-gradient(160deg,var(--g1),var(--g2));box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.tile.p{background:linear-gradient(160deg,#60a5fa,var(--police))} .tile.b{background:linear-gradient(160deg,#f87171,var(--ctrl))} .tile.a{background:linear-gradient(160deg,#fb923c,var(--crash))}
+.next .t{font-weight:800;font-size:14px;line-height:1.2}
+.next .d{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Velocímetro */
+.speed{position:fixed;z-index:20;right:max(14px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 70px);width:104px;height:104px;border-radius:50%;
+  background:#fff;box-shadow:var(--sh);display:grid;place-items:center}
+.speed svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.ring-bg{fill:none;stroke:var(--gsoft);stroke-width:8}
+.ring-fg{fill:none;stroke:var(--g2);stroke-width:8;stroke-linecap:round;stroke-dasharray:289;stroke-dashoffset:289;transition:stroke-dashoffset .5s ease,stroke .3s}
+.speed.over .ring-fg{stroke:var(--ctrl)}
+.speed.over{animation:pulse 1s infinite}
+@keyframes pulse{50%{box-shadow:var(--sh),0 0 0 10px rgba(220,38,38,.18)}}
+.speed .in{text-align:center;position:relative;font-variant-numeric:tabular-nums}
+.speed .v{font-size:34px;font-weight:800;line-height:1;letter-spacing:-.03em}
+.speed .u{font-size:11px;color:var(--muted);font-weight:700;margin-top:2px}
+.limit{position:fixed;z-index:21;right:calc(max(14px,env(safe-area-inset-right,0px)) + 74px);top:calc(env(safe-area-inset-top,0px) + 142px);width:44px;height:44px;border-radius:50%;
+  background:#fff;border:5px solid #dc2626;color:#111;font:800 15px var(--font);display:grid;place-items:center;box-shadow:var(--sh)}
+
+/* Panel inferior */
+.sheet{position:fixed;z-index:30;bottom:0;left:50%;transform:translateX(-50%);width:min(100%,520px);background:#fff;border-radius:28px 28px 0 0;
+  padding:8px 18px calc(env(safe-area-inset-bottom,0px) + 14px);box-shadow:0 -14px 40px -10px rgba(15,23,42,.28)}
+.handle{display:block;width:100%;height:22px;border:0;background:none;cursor:pointer;padding:0}
+.handle::after{content:"";display:block;width:44px;height:5px;border-radius:99px;background:#cbd5e1;margin:7px auto}
+.sum{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.lbl{font-size:12px;color:var(--muted);font-weight:600}
+.big-n{font-size:34px;font-weight:800;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.big-n small{font-size:14px;color:var(--muted);font-weight:700;letter-spacing:0}
+.sum .r{text-align:right}
+.nm{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px;max-width:60vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.segs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 14px}
+.segs i{height:6px;border-radius:99px;background:#e2e8f0;transition:background .3s}
+.segs i.on{background:var(--g2)}
+.listwrap{background:var(--gxl);border-radius:20px;padding:10px 10px 6px;margin-bottom:16px}
+.lh{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 8px;font-weight:800;font-size:13px}
+.chip{background:#fff;color:var(--g3);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:800}
+.list{list-style:none;margin:0;padding:0;max-height:min(19vh,170px);overflow:auto;display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
+.row{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px 8px 8px}
+.row .tile{width:36px;height:36px;border-radius:11px}
+.row .tx{flex:1;min-width:0}
+.row .n{font-weight:700;font-size:13px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .m{font-size:11px;color:var(--muted);font-weight:600;margin-top:1px}
+.row .dd{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.del{width:36px;height:36px;border-radius:11px;border:0;background:#fee2e2;color:#b91c1c;display:grid;place-items:center;cursor:pointer;flex:none;transition:transform .1s}
+.del:active{transform:scale(.92)}
+.empty{font-size:12px;color:var(--muted);font-weight:600;text-align:center;padding:14px 8px 16px;line-height:1.5}
+.sheet.min .listwrap{display:none}
+
+/* Botones 3D */
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:6px}
+.act,.btn{--c1:#60a5fa;--c2:#2563eb;--c3:#1e40af;--sc:rgba(37,99,235,.5);position:relative;border:0;cursor:pointer;color:#fff;font-weight:800;
+  background:linear-gradient(180deg,var(--c1),var(--c2));
+  box-shadow:0 6px 0 var(--c3),0 16px 22px -6px var(--sc),inset 0 2px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.1);
+  transition:transform .08s ease,box-shadow .08s ease;text-shadow:0 1px 0 rgba(0,0,0,.18)}
+.act:active,.btn:active{transform:translateY(5px);box-shadow:0 1px 0 var(--c3),0 5px 8px -4px var(--sc),inset 0 2px 0 rgba(255,255,255,.4)}
+.act::before,.btn::before{content:"";position:absolute;left:4px;right:4px;top:3px;height:44%;border-radius:15px 15px 50% 50%/15px 15px 22px 22px;background:linear-gradient(rgba(255,255,255,.34),rgba(255,255,255,0));pointer-events:none}
+.act{border-radius:20px;padding:12px 4px 11px;display:flex;flex-direction:column;align-items:center;gap:6px;font-size:13px;min-height:84px}
+.act .ico{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,.22);display:grid;place-items:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+.act.p{--c1:#60a5fa;--c2:#2563eb;--c3:#1e40af;--sc:rgba(37,99,235,.5)}
+.act.b{--c1:#f87171;--c2:#dc2626;--c3:#991b1b;--sc:rgba(220,38,38,.5)}
+.act.a{--c1:#fb923c;--c2:#ea580c;--c3:#9a3412;--sc:rgba(234,88,12,.5)}
+.act:focus-visible,.btn:focus-visible,.round:focus-visible,.del:focus-visible,.handle:focus-visible{outline:3px solid var(--g2);outline-offset:3px}
+.btn{width:100%;border-radius:18px;padding:16px 18px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px;--c1:var(--g1);--c2:var(--g2);--c3:var(--g3);--sc:rgba(16,185,129,.55);margin-bottom:6px}
+#vReady,#vPay,#vLogin{display:flex;flex-direction:column;gap:16px}
+#vReady .btn,#vPay .btn,#vLogin .btn{margin:0}
+.btn.ghost{--c1:#fff;--c2:#f1f5f9;--c3:#cbd5e1;--sc:rgba(15,23,42,.18);color:var(--ink);text-shadow:none}
+.btn.ghost::before{background:linear-gradient(rgba(255,255,255,.9),rgba(255,255,255,0))}
+.btn:disabled{opacity:.6;pointer-events:none}
+
+/* Pantalla de inicio */
+.start{position:fixed;inset:0;z-index:100;overflow:auto;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(900px 500px at 15% -10%,#bbf7d0 0,transparent 60%),radial-gradient(700px 500px at 100% 100%,#a7f3d0 0,transparent 55%),linear-gradient(#f0fdf8,#e6f9f1);
+  padding:calc(env(safe-area-inset-top,0px) + 24px) 20px calc(env(safe-area-inset-bottom,0px) + 24px)}
+.card{width:100%;max-width:420px;display:flex;flex-direction:column;gap:16px;text-align:center;align-items:center}
+.badge{display:inline-flex;align-items:center;gap:8px;background:#fff;border-radius:99px;padding:7px 14px;font-size:11px;font-weight:800;letter-spacing:.1em;color:#334155;box-shadow:0 4px 14px -4px rgba(15,23,42,.18)}
+.badge i{width:8px;height:8px;border-radius:50%;background:var(--g2)}
+.card h1{margin:0;font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.card h1 b{color:var(--g2)}
+.card .lead{margin:0;color:var(--muted);font-weight:600;line-height:1.5;font-size:15px;text-wrap:balance}
+.preview{display:flex;align-items:center;gap:12px;background:#fff;border-radius:18px;padding:10px 16px 10px 10px;box-shadow:var(--sh);text-align:left;width:100%;max-width:330px}
+.preview .t{font-weight:800;font-size:14px} .preview .d{font-size:12px;color:var(--muted);font-weight:600;margin-top:2px}
+.views{width:100%;display:flex;flex-direction:column;gap:12px;margin-top:4px}
+.views p{margin:0;font-size:14px;line-height:1.5;color:#334155;font-weight:600}
+.small{font-size:11.5px;color:var(--muted);line-height:1.55;font-weight:500}
+.gicon{width:22px;height:22px;flex:none}
+
+.toast{position:fixed;z-index:200;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h,260px) + 24px);
+  background:var(--ink);color:#fff;border-radius:14px;padding:11px 16px;font-weight:700;font-size:13px;max-width:90%;text-align:center;box-shadow:var(--sh)}
+@media (max-width:380px){.speed{width:92px;height:92px}.speed .v{font-size:30px}.limit{right:calc(max(14px,env(safe-area-inset-right,0px)) + 64px);top:calc(env(safe-area-inset-top,0px) + 130px)}.big-n{font-size:30px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="map" aria-label="Mapa"></div>
+
+<div class="top">
+  <div class="pill">
+    <i class="dot" id="dot"></i>
+    <div><div class="brand">Blinda<b>car</b></div><div class="st" id="stxt">Parado</div></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="round" id="mute" type="button" aria-label="Activar o desactivar la voz"></button>
+</div>
+<button class="round" id="center" type="button" aria-label="Centrar en mi posición" data-ic="crosshair"></button>
+
+<div class="next" id="next" hidden>
+  <div class="tile" id="nextIc"></div>
+  <div style="min-width:0"><div class="t" id="nextT">—</div><div class="d" id="nextD">—</div></div>
+</div>
+
+<div class="speed" id="speed">
+  <svg viewBox="0 0 104 104" aria-hidden="true"><circle class="ring-bg" cx="52" cy="52" r="46"/><circle class="ring-fg" id="ring" cx="52" cy="52" r="46"/></svg>
+  <div class="in"><div class="v" id="spv">0</div><div class="u">km/h</div></div>
+</div>
+<div class="limit" id="limit" aria-label="Límite de velocidad">50</div>
+
+<section class="sheet" id="sheet" aria-label="Avisos">
+  <button class="handle" id="handle" type="button" aria-label="Mostrar u ocultar la lista de avisos"></button>
+  <div class="sum">
+    <div style="min-width:0">
+      <div class="lbl">Próximo aviso</div>
+      <div class="big-n" id="shDist">—</div>
+      <div class="nm" id="shName">Esperando GPS…</div>
+    </div>
+    <div class="r">
+      <div class="lbl">Límite</div>
+      <div class="big-n"><span id="shLim">50</span> <small>km/h</small></div>
+    </div>
+  </div>
+  <div class="segs" id="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+  <div class="listwrap">
+    <div class="lh"><span>Avisos cerca</span><span class="chip" id="listCount">0</span></div>
+    <ul class="list" id="list"></ul>
+  </div>
+
+  <div class="acts">
+    <button class="act p" id="rp" type="button"><span class="ico" data-ic="shield" data-s="22"></span>Policía</button>
+    <button class="act b" id="rb" type="button"><span class="ico" data-ic="camera" data-s="22"></span>Control</button>
+    <button class="act a" id="ra" type="button"><span class="ico" data-ic="alert" data-s="22"></span>Accidente</button>
+  </div>
+</section>
+
+<div class="start" id="start">
+  <div class="card">
+    <span class="badge"><i></i>RADAR · PAMPLONA</span>
+    <h1>Blinda<b>car</b></h1>
+    <p class="lead">Radares y avisos de la comunidad en tiempo real, con aviso por voz y velocímetro.</p>
+    <div class="preview" aria-hidden="true">
+      <div class="tile" id="pvIc"></div>
+      <div><div class="t">Radar fijo a 400 m</div><div class="d">Av. del Ejército · 50 km/h</div></div>
+    </div>
+    <div class="views">
+      <div id="vLoading"><p class="small">Cargando…</p></div>
+      <div id="vLogin" hidden>
+        <button class="btn ghost" id="gLogin" type="button">
+          <svg class="gicon" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          Entrar con Google
+        </button>
+        <p class="small" style="margin-top:10px">Inicia sesión para comprar o recuperar tu acceso.</p>
+      </div>
+      <div id="vPay" hidden>
+        <p>Hola, <b id="who"></b>.<br>Acceso completo con <b>pago único</b>: radares, avisos en tiempo real y aviso por voz.</p>
+        <button class="btn" id="buy" type="button" style="margin-top:12px">Comprar acceso</button>
+        <button class="btn ghost" id="logout1" type="button">Salir</button>
+      </div>
+      <div id="vReady" hidden>
+        <button class="btn" id="go" type="button" data-ic="navigation" data-s="20">Empezar a conducir</button>
+        <button class="btn ghost" id="demo" type="button">Probar con un recorrido de ejemplo</button>
+        <button class="btn ghost" id="logout2" type="button" style="font-size:14px;padding:12px">Salir</button>
+      </div>
+    </div>
+    <p class="small">Prototipo de prueba. Las posiciones de los radares son aproximadas: toca un radar y «Mover aquí» para corregirlo. Los avisos de la comunidad caducan a los 10 minutos. No manipules el móvil mientras conduces: mejor que avise el copiloto.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(() => {
+'use strict';
+// ---------- Configuración ----------
+const SUPABASE_URL = 'https://nbvuvslfltzjuemrbhau.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_HtwLRzqqerG4SaGyArOEMQ_D-_qyH3F'; // clave pública (segura en el navegador)
+const MAPTILER_KEY = 'mbVkaGSHfJfOxu9ortUQ'; // clave pública, restringida al dominio blindacar.vercel.app
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const REPORT_TTL = 10 * 60 * 1000;               // los avisos caducan en 10 min
+const RADAR_ALERT_M = 400, REPORT_ALERT_M = 300; // distancias de aviso en METROS
+const REALERT_MS = 3 * 60 * 1000;
+const CITY_LIMIT = 50;
+const NEAR_M = 1500;
+
+// ---------- Iconos (SVG en línea) ----------
+const ICONS = {
+  vol:'<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  volx:'<path d="M11 5 6 9H2v6h4l5 4V5z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/>',
+  crosshair:'<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  navigation:'<polygon points="3 11 22 2 13 21 11 13 3 11"/>'
+};
+const svg = (n,s=20) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(el=>el.insertAdjacentHTML('afterbegin',svg(el.dataset.ic,+el.dataset.s||22)));
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const TYPES = {
+  p:{label:'Policía',voice:'Atención, policía a {d} metros',ic:'shield'},
+  b:{label:'Control de velocidad',voice:'Control de velocidad a {d} metros',ic:'camera'},
+  a:{label:'Accidente',voice:'Accidente a {d} metros, precaución',ic:'alert'},
+};
+
+// ---------- Utilidades ----------
+const $ = id => document.getElementById(id);
+$('pvIc').innerHTML = svg('gauge',22);
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+// Distancia en metros (Haversine)
+function dist(a,b,c,d){const R=6371000,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r;
+  const h=Math.sin(x/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function fmtDist(m){return m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.round(m/10)*10+' m'}
+function ago(ts){const m=Math.round((Date.now()-ts)/60000);return m<1?'ahora':'hace '+m+' min'}
+let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+
+// Altura del panel inferior -> variable CSS (para botón de centrar, atribución y avisos)
+const sheet = $('sheet');
+const setSheetH = () => document.documentElement.style.setProperty('--sheet-h', sheet.offsetHeight+'px');
+if('ResizeObserver' in window) new ResizeObserver(setSheetH).observe(sheet);
+setSheetH();
+$('handle').onclick=()=>{sheet.classList.toggle('min');setSheetH()};
+
+// ---------- Voz ----------
+let voiceOn = store.get('rn_voice', true), esVoice=null;
+function pickVoice(){const v=speechSynthesis.getVoices();esVoice=v.find(x=>x.lang==='es-ES')||v.find(x=>x.lang&&x.lang.startsWith('es'))||null}
+if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
+function say(t){if(!voiceOn||!('speechSynthesis' in window))return;const u=new SpeechSynthesisUtterance(t);u.lang='es-ES';if(esVoice)u.voice=esVoice;u.rate=1;speechSynthesis.cancel();speechSynthesis.speak(u)}
+function renderMute(){$('mute').innerHTML=svg(voiceOn?'vol':'volx',22);$('mute').classList.toggle('off',!voiceOn)}
+$('mute').onclick=()=>{voiceOn=!voiceOn;store.set('rn_voice',voiceOn);renderMute();if(voiceOn)say('Voz activada')};
+renderMute();
+
+// ---------- Mapa ----------
+const map = L.map('map',{zoomControl:false,attributionControl:true}).setView([42.8125,-1.6458],14);
+L.tileLayer('https://api.maptiler.com/maps/basic-v2-light/{z}/{x}/{y}{r}.png?key='+MAPTILER_KEY,{maxZoom:19,
+  attribution:'© <a href="https://www.maptiler.com/copyright/" target="_blank" rel="noopener">MapTiler</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(map);
+const icon = (cls,ic)=>L.divIcon({className:'',html:`<div class="mk ${cls}">${svg(ic,18)}</div>`,iconSize:[36,36],iconAnchor:[18,18]});
+const meIcon = L.divIcon({className:'',html:'<div class="me"></div>',iconSize:[22,22],iconAnchor:[11,11]});
+
+// Radares (con correcciones guardadas en este móvil)
+const fixes = store.get('rn_fixes',{});
+let radars = [];
+async function loadRadars(){
+  const {data,error}=await sb.from('radars').select('id,name,lat,lng,speed_limit,verified');
+  if(error){toast('No se pudieron cargar los radares');return}
+  radars=data.map(r=>({id:r.id,name:r.name,lat:fixes[r.id]?.[0]??r.lat,lng:fixes[r.id]?.[1]??r.lng,lim:r.speed_limit,fixed:!!fixes[r.id],verified:r.verified}));
+  drawRadars();renderList(true);
+}
+const radarLayer = L.layerGroup().addTo(map);
+function drawRadars(){radarLayer.clearLayers();radars.forEach(r=>{
+  const m=L.marker([r.lat,r.lng],{icon:icon('r','gauge')}).addTo(radarLayer);
+  m.bindPopup(()=>{const d=document.createElement('div');d.className='pop';
+    d.innerHTML=`<b>Radar fijo · ${r.lim} km/h</b>${esc(r.name)}<br><small>${r.fixed?'Posición corregida por ti':(r.verified?'Posición verificada':'Posición aproximada')}</small>`;
+    const btn=document.createElement('button');btn.type='button';btn.textContent='Mover aquí (mi posición)';
+    btn.onclick=()=>{if(!me){toast('Necesito tu posición primero');return}
+      r.lat=me.lat;r.lng=me.lng;r.fixed=true;fixes[r.id]=[me.lat,me.lng];store.set('rn_fixes',fixes);drawRadars();toast('Radar movido a tu posición')};
+    d.appendChild(btn);return d});
+});}
+drawRadars();
+
+// ---------- Avisos de la comunidad ----------
+let reports = []; const reportLayer = L.layerGroup().addTo(map);
+const isOwn = r => !!(r.uid && session && session.user && r.uid===session.user.id);
+function drawReports(){reportLayer.clearLayers();const now=Date.now();
+  reports=reports.filter(r=>now-r.ts<REPORT_TTL);
+  reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
+    L.marker([r.lat,r.lng],{icon:icon(r.t,t.ic)}).addTo(reportLayer)
+     .bindPopup(()=>{const d=document.createElement('div');d.className='pop';
+       d.innerHTML=`<b>${t.label}</b><small>Avisado ${ago(r.ts)}${isOwn(r)?' · tuyo':''}</small>`;
+       if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
+       return d})});
+  renderList(true);}
+function addReport(r){if(!r||!TYPES[r.t]||typeof r.lat!=='number'||typeof r.lng!=='number'||typeof r.ts!=='number')return;
+  // La zona de servicio (Navarra) se valida en el servidor; las cuentas de prueba pueden avisar desde otros lugares
+  if(reports.some(x=>x.id===r.id))return;reports.push(r);}
+function removeReport(id){reports=reports.filter(x=>x.id!==id);drawReports()}
+function rowToReport(x){return {id:x.id,t:x.type,lat:x.lat,lng:x.lng,uid:x.user_id,ts:new Date(x.created_at).getTime()}}
+async function pull(){
+  if(!hasAccess)return;
+  const since=new Date(Date.now()-REPORT_TTL).toISOString();
+  const {data,error}=await sb.from('reports').select('id,type,lat,lng,user_id,created_at').gte('created_at',since);
+  if(error){setNet(false);return}
+  reports=[];data.forEach(x=>addReport(rowToReport(x)));drawReports();setNet(true);
+}
+let netOk=null;function setNet(ok){netOk=ok}
+let rt=null;
+function subscribeRealtime(){
+  if(rt)return;
+  rt=sb.channel('reports-live')
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'reports'},p=>{addReport(rowToReport(p.new));drawReports()})
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'reports'},p=>{if(p.old&&p.old.id)removeReport(p.old.id)})
+    .subscribe();
+}
+setInterval(pull,20000);setInterval(drawReports,30000);
+
+async function deleteReport(id){
+  const {data,error}=await sb.from('reports').delete().eq('id',id).select('id');
+  if(error||!data||!data.length){toast('No se pudo eliminar el aviso');return}
+  map.closePopup();removeReport(id);toast('Aviso eliminado');
+}
+
+let lastSent = store.get('rn_last',0);
+async function report(t){
+  if(!hasAccess){toast('Necesitas acceso para avisar');return}
+  if(!me){toast('Esperando tu posición…');return}
+  if(Date.now()-lastSent<60000){toast('Espera un minuto entre avisos');return}
+  const {data,error}=await sb.from('reports').insert({type:t,lat:+me.lat.toFixed(5),lng:+me.lng.toFixed(5)}).select('id,type,lat,lng,user_id,created_at').single();
+  if(error){toast(error.code==='P0001'?'Espera un minuto entre avisos':error.code==='P0002'?'Solo disponible en la zona de Pamplona':'No se pudo enviar el aviso');return}
+  lastSent=Date.now();store.set('rn_last',lastSent);
+  addReport(rowToReport(data));drawReports();
+  toast(TYPES[t].label+' avisado. Gracias');
+}
+$('rp').onclick=()=>report('p');$('rb').onclick=()=>report('b');$('ra').onclick=()=>report('a');
+
+// ---------- Panel: lista de avisos ----------
+let lastList=0;
+function renderList(force){
+  const now=Date.now();if(!force&&now-lastList<3000)return;lastList=now;
+  const items=[];
+  reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
+    items.push({id:r.id,k:'rep',t:r.t,name:t.label,ic:t.ic,ts:r.ts,own:isOwn(r),d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:ago(r.ts)+(isOwn(r)?' · tuyo':'')})});
+  radars.forEach(r=>items.push({id:r.id,k:'rad',t:'r',name:r.name,ic:'gauge',own:false,d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:'Radar fijo · '+r.lim+' km/h'}));
+  if(me)items.sort((a,b)=>a.d-b.d);
+  else items.sort((a,b)=>(a.k===b.k?(b.ts||0)-(a.ts||0):(a.k==='rep'?-1:1)));
+  const shown=items.slice(0,8);
+  $('listCount').textContent=reports.length;
+  const ul=$('list');ul.innerHTML='';
+  if(!shown.length){const li=document.createElement('li');li.className='empty';li.textContent='Aún no hay avisos. Cuando alguien avise, aparecerá aquí durante 10 minutos.';ul.appendChild(li);return}
+  shown.forEach(it=>{
+    const li=document.createElement('li');li.className='row';
+    li.innerHTML=`<div class="tile ${it.t}">${svg(it.ic,18)}</div><div class="tx"><div class="n">${esc(it.name)}</div><div class="m">${esc(it.meta)}</div></div><div class="dd">${it.d==null?'':fmtDist(it.d)}</div>`;
+    if(it.own){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(it.id);li.appendChild(b)}
+    ul.appendChild(li)});
+}
+
+// ---------- Posición, velocidad y avisos por voz ----------
+let me=null, meMarker=null, follow=true, prev=null, alerted={}, overT=0, mode=null;
+map.on('dragstart',()=>follow=false);
+$('center').onclick=()=>{follow=true;if(me)map.setView([me.lat,me.lng],Math.max(map.getZoom(),16))};
+
+const RING=289;
+function setHud(best,kmh,lim){
+  if(best){
+    $('next').hidden=false;$('nextIc').className='tile '+best.cls;$('nextIc').innerHTML=svg(best.ic,22);
+    $('nextT').textContent=best.title+' a '+fmtDist(best.d);$('nextD').textContent=best.sub;
+    $('shDist').textContent=fmtDist(best.d);$('shName').textContent=best.title+' · '+best.sub;
+  }else{
+    $('next').hidden=true;$('shDist').textContent='Vía libre';$('shName').textContent='Sin avisos a menos de '+fmtDist(NEAR_M);
+  }
+  const n=best?Math.max(1,Math.ceil((1-Math.min(best.d,NEAR_M)/NEAR_M)*4)):0;
+  [...$('segs').children].forEach((s,i)=>s.classList.toggle('on',i<n));
+  $('limit').textContent=lim;$('shLim').textContent=lim;$('spv').textContent=Math.round(kmh);
+  $('ring').style.strokeDashoffset=RING*(1-Math.min(kmh/(lim+20),1));
+}
+
+function onPos(lat,lng,speedMs,ts){
+  let kmh = (speedMs!=null&&speedMs>=0)?speedMs*3.6:null;
+  if(kmh==null&&prev){const dt=(ts-prev.ts)/1000;if(dt>0)kmh=dist(prev.lat,prev.lng,lat,lng)/dt*3.6}
+  prev={lat,lng,ts};me={lat,lng};kmh=Math.max(0,Math.min(kmh||0,250));
+  if(!meMarker)meMarker=L.marker([lat,lng],{icon:meIcon,zIndexOffset:1000}).addTo(map);else meMarker.setLatLng([lat,lng]);
+  if(follow)map.setView([lat,lng],Math.max(map.getZoom(),16),{animate:true});
+
+  // Aviso más cercano (radares + comunidad)
+  const now=Date.now();let best=null;
+  radars.forEach(r=>{const d=dist(lat,lng,r.lat,r.lng);if(d<NEAR_M&&(!best||d<best.d))best={d,title:'Radar fijo',sub:r.name,ic:'gauge',cls:'',lim:r.lim}
+    if(d<RADAR_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(`Radar fijo a ${Math.round(d/50)*50} metros. Límite ${r.lim}`)}});
+  reports.forEach(r=>{const d=dist(lat,lng,r.lat,r.lng);const t=TYPES[r.t];
+    if(d<NEAR_M&&(!best||d<best.d))best={d,title:t.label,sub:ago(r.ts),ic:t.ic,cls:r.t};
+    if(d<REPORT_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}});
+
+  const lim = (best&&best.lim&&best.d<500)?best.lim:CITY_LIMIT;
+  setHud(best,kmh,lim);renderList(false);
+  const over=kmh>lim+7;$('speed').classList.toggle('over',over);
+  if(over&&now-overT>30000){overT=now;say('Exceso de velocidad')}
+}
+
+// ---------- Cuenta y acceso ----------
+let hasAccess=false, session=null;
+function setView(v){['vLoading','vLogin','vPay','vReady'].forEach(id=>$(id).hidden=(id!==v));}
+async function refreshAccess(){
+  const {data:{session:s}}=await sb.auth.getSession();session=s;
+  if(!s){hasAccess=false;setView('vLogin');return}
+  $('who').textContent=s.user.email||'';
+  const {data,error}=await sb.from('profiles').select('has_access').eq('id',s.user.id).maybeSingle();
+  if(error){toast('Error al comprobar tu acceso');setView('vLogin');return}
+  hasAccess=!!(data&&data.has_access);
+  setView(hasAccess?'vReady':'vPay');
+  if(hasAccess){await loadRadars();await pull();subscribeRealtime()}
+}
+$('gLogin').onclick=()=>sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});
+async function logout(){await sb.auth.signOut();location.href=location.pathname}
+$('logout1').onclick=logout;$('logout2').onclick=logout;
+$('buy').onclick=async()=>{
+  if(!session)return;$('buy').disabled=true;
+  try{
+    const res=await fetch('/api/checkout',{method:'POST',headers:{Authorization:'Bearer '+session.access_token}});
+    const j=await res.json();
+    if(j.url)location.href=j.url;
+    else if(j.already){await refreshAccess()}
+    else toast('No se pudo iniciar el pago');
+  }catch(e){toast('Sin conexión')}
+  $('buy').disabled=false;
+};
+sb.auth.onAuthStateChange((ev)=>{if(ev==='SIGNED_OUT'){hasAccess=false;setView('vLogin')}});
+(async()=>{
+  await refreshAccess();
+  // Tras pagar, el webhook de Stripe tarda unos segundos en activar el acceso
+  if(new URLSearchParams(location.search).get('paid')==='1'&&!hasAccess){
+    toast('Confirmando tu pago…');
+    for(let i=0;i<15&&!hasAccess;i++){await new Promise(r=>setTimeout(r,2000));await refreshAccess()}
+    if(hasAccess)toast('¡Acceso activado!');else toast('El pago puede tardar un poco. Recarga en un minuto.');
+  }
+  if(location.search)history.replaceState(null,'',location.pathname);
+})();
+
+let watchId=null, wake=null;
+async function keepAwake(){try{wake=await navigator.wakeLock?.request('screen')}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&mode)keepAwake()});
+
+$('go').onclick=()=>{
+  if(!('geolocation' in navigator)){toast('Este navegador no da la ubicación');return}
+  mode='gps';$('start').hidden=true;say('Buen viaje');keepAwake();
+  $('dot').className='dot on';$('stxt').textContent='Buscando GPS…';
+  watchId=navigator.geolocation.watchPosition(p=>{$('stxt').textContent='GPS activo';
+      onPos(p.coords.latitude,p.coords.longitude,p.coords.speed,p.timestamp)},
+    err=>{$('stxt').textContent='Sin GPS';$('dot').className='dot';
+      toast(err.code===1?'Permite la ubicación en el navegador para usar el GPS':'No llega la señal GPS')},
+    {enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+};
+
+// Recorrido de ejemplo: Landaben → Pío XII → Ejército → Baja Navarra → Beloso
+$('demo').onclick=()=>{
+  mode='demo';$('start').hidden=true;keepAwake();say('Recorrido de ejemplo');
+  $('dot').className='dot demo';$('stxt').textContent='Recorrido de ejemplo';
+  const path=[[42.8128,-1.6935],[42.8128,-1.6868],[42.8110,-1.6760],[42.8090,-1.6650],[42.8072,-1.6552],
+    [42.8110,-1.6500],[42.8152,-1.6478],[42.8135,-1.6420],[42.8114,-1.6386],[42.8160,-1.6340],[42.8205,-1.6295],[42.8240,-1.6250]];
+  const pts=[];for(let i=0;i<path.length-1;i++){const[a,b]=path[i],[c,d]=path[i+1];const n=Math.max(2,Math.round(dist(a,b,c,d)/12));
+    for(let k=0;k<n;k++)pts.push([a+(c-a)*k/n,b+(d-b)*k/n])}
+  let i=0;const speeds=[48,52,58,46,44];
+  setInterval(()=>{const[lat,lng]=pts[i%pts.length];const s=speeds[Math.floor(i/60)%speeds.length];
+    onPos(lat,lng,s/3.6,Date.now());i++},Math.round(12/(50/3.6)*1000));
+};
+renderList(true);setHud(null,0,CITY_LIMIT);$('shDist').textContent='—';$('shName').textContent='Esperando GPS…';
+})();
+</script>
+</body>
+</html>
