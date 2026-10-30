@@ -208,7 +208,7 @@ body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px
 .man .mi{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.18);display:grid;place-items:center;flex:none}
 .man .tx{min-width:0;flex:1}
 .man .md{font-size:20px;font-weight:800;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
-.man .mt{font-size:13px;font-weight:700;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.man .mt{font-size:13px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .man .ms{font-size:11.5px;font-weight:600;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
 body.navigating .top .pill{visibility:hidden}
 body.navigating .next{top:calc(env(safe-area-inset-top,0px) + 96px)}
@@ -461,8 +461,8 @@ map.on('load',()=>{
   // Edificios en 3D (si el estilo trae la capa de edificios), por debajo de los nombres
   try{const bl=layers.find(l=>l['source-layer']==='building');
     if(bl)map.addLayer({id:'b3d',type:'fill-extrusion',source:bl.source,'source-layer':'building',minzoom:15,
-      paint:{'fill-extrusion-color':'#dfe7e2','fill-extrusion-height':['coalesce',['get','render_height'],8],
-        'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],15,0,16,.8]}},firstSym)}catch(e){}
+      paint:{'fill-extrusion-color':'#eef2ef','fill-extrusion-height':['coalesce',['get','render_height'],8],
+        'fill-extrusion-base':['coalesce',['get','render_min_height'],0],'fill-extrusion-opacity':['interpolate',['linear'],['zoom'],15,0,16,.5]}},firstSym)}catch(e){}
   // Trazado de la ruta y círculos de avisos: debajo de los nombres de las calles, para que se sigan leyendo
   map.addSource('route',{type:'geojson',data:EMPTY});map.addSource('halos',{type:'geojson',data:EMPTY});
   const line=(id,k,paint)=>map.addLayer({id,type:'line',source:'route',filter:['==',['get','k'],k],layout:{'line-cap':'round','line-join':'round'},paint},firstSym);
@@ -474,6 +474,9 @@ map.on('load',()=>{
     'circle-stroke-color':'#047857','circle-stroke-width':3,'circle-pitch-alignment':'map'}},firstSym);
   map.on('click','r-alt',e=>{const f=e.features&&e.features[0];if(f)selectAlt(f.properties.i)});
   map.on('mouseenter','r-alt',()=>{map.getCanvas().style.cursor='pointer'});map.on('mouseleave','r-alt',()=>{map.getCanvas().style.cursor=''});
+  // Mapa limpio para conducir: sin tiendas, bares, paradas, aparcamientos ni números de portal (los nombres de calles se quedan)
+  layers.forEach(l=>{if(l.type==='symbol'&&(['poi','housenumber','aerodrome_label','mountain_peak'].includes(l['source-layer'])||/poi|housenumber|station|transit/i.test(l.id)))
+    try{map.setLayoutProperty(l.id,'visibility','none')}catch(e){}});
   // Nombres en español: el estilo de MapTiler pone primero el nombre en inglés (name:en)
   layers.forEach(l=>{if(l.type!=='symbol')return;try{const tf=map.getLayoutProperty(l.id,'text-field');if(!tf)return;
     const js=JSON.stringify(tf);if(js.includes('name:en'))map.setLayoutProperty(l.id,'text-field',JSON.parse(js.split('name:en').join('name:es')))}catch(e){}});
