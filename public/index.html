@@ -106,7 +106,7 @@ body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px
 .segs i.on{background:var(--g2)}
 .listwrap{background:var(--gxl);border-radius:20px;padding:10px 10px 6px;margin-bottom:16px}
 .lh{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 8px;font-weight:800;font-size:13px}
-.chip{background:#fff;color:var(--g3);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:800}
+.chip{white-space:nowrap;flex:none;background:#fff;color:var(--g3);border-radius:99px;padding:3px 10px;font-size:11px;font-weight:800}
 .list{list-style:none;margin:0;padding:0;max-height:min(19vh,170px);overflow:auto;display:flex;flex-direction:column;gap:6px;padding-bottom:4px}
 .row{display:flex;align-items:center;gap:10px;background:#fff;border-radius:14px;padding:8px 10px 8px 8px}
 .row .tile{width:36px;height:36px;border-radius:11px}
@@ -120,7 +120,7 @@ body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px
 .sheet.min .listwrap{display:none}
 
 /* Botones 3D */
-.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:6px}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}
 .act,.btn{--c1:#60a5fa;--c2:#2563eb;--c3:#1e40af;--sc:rgba(37,99,235,.5);position:relative;border:0;cursor:pointer;color:#fff;font-weight:800;
   background:linear-gradient(180deg,var(--c1),var(--c2));
   box-shadow:0 6px 0 var(--c3),0 16px 22px -6px var(--sc),inset 0 2px 0 rgba(255,255,255,.5),inset 0 -2px 0 rgba(0,0,0,.1);
@@ -132,6 +132,27 @@ body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px
 .act.p{--c1:#60a5fa;--c2:#2563eb;--c3:#1e40af;--sc:rgba(37,99,235,.5)}
 .act.b{--c1:#f87171;--c2:#dc2626;--c3:#991b1b;--sc:rgba(220,38,38,.5)}
 .act.a{--c1:#fb923c;--c2:#ea580c;--c3:#9a3412;--sc:rgba(234,88,12,.5)}
+.act.o{--c1:#facc15;--c2:#ca8a04;--c3:#854d0e;--sc:rgba(202,138,4,.5)}
+@media (max-width:400px){.act{font-size:12px;min-height:78px}.act .ico{width:34px;height:34px}}
+.mk.o{--c:#ca8a04} .tile.o{background:linear-gradient(160deg,#facc15,#ca8a04)}
+/* Alerta fuerte: varios conductores avisan lo mismo en el mismo sitio */
+.mk.strong{animation:strong 1.2s ease-out infinite}
+@keyframes strong{0%{box-shadow:0 0 0 0 rgba(220,38,38,.65),0 6px 14px -2px rgba(15,23,42,.35)}100%{box-shadow:0 0 0 16px rgba(220,38,38,0),0 6px 14px -2px rgba(15,23,42,.35)}}
+.info{position:fixed;z-index:31;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:min(calc(100% - 28px),440px);
+  background:#fff;border-radius:20px;padding:14px 46px 14px 16px;box-shadow:var(--sh)}
+.info .qx{position:absolute;top:8px;right:8px}
+.info .pop small{display:block;margin-top:2px}
+.pop .vb{display:flex;gap:6px;margin-top:10px}.pop .vb button{margin:0;flex:1}
+.pop .vb .yes{background:var(--gsoft);color:var(--g3)}
+/* Pregunta «¿Sigue ahí?» al pasar junto a un aviso */
+.vote{position:fixed;z-index:31;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:min(calc(100% - 28px),440px);
+  display:flex;align-items:center;gap:10px;background:#fff;border-radius:20px;padding:10px;box-shadow:var(--sh);overflow:hidden}
+.vote .tx{flex:1;min-width:0;font-size:12px;color:var(--muted);font-weight:600;line-height:1.3}
+.vote .tx b{display:block;color:var(--ink);font-size:15px;font-weight:800}
+.vbtn{border:0;border-radius:14px;min-width:64px;height:50px;font:800 15px var(--font);cursor:pointer;flex:none}
+.vbtn.yes{background:var(--g2);color:#fff}.vbtn.no{background:#fee2e2;color:#b91c1c}
+.vote .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--g1);animation:votebar 15s linear forwards}
+@keyframes votebar{from{width:100%}to{width:0}}
 .act:focus-visible,.btn:focus-visible,.round:focus-visible,.del:focus-visible,.handle:focus-visible{outline:3px solid var(--g2);outline-offset:3px}
 .btn{width:100%;border-radius:18px;padding:16px 18px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px;--c1:var(--g1);--c2:var(--g2);--c3:var(--g3);--sc:rgba(16,185,129,.55);margin-bottom:6px}
 #vReady,#vPay,#vLogin,#vErr{display:flex;flex-direction:column;gap:16px}
@@ -269,6 +290,17 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
 </div>
 <div class="limit" id="limit" aria-label="Límite de velocidad">50</div>
 
+<div class="info" id="info" role="dialog" aria-label="Detalle del aviso" hidden>
+  <button class="qx" id="infoX" type="button" aria-label="Cerrar" data-ic="x" data-s="18"></button>
+  <div id="infoBody"></div>
+</div>
+<div class="vote" id="vote" role="dialog" aria-label="¿Sigue ahí el aviso?" hidden>
+  <div class="tile" id="voteIc"></div>
+  <div class="tx"><b id="voteT">¿Sigue ahí?</b><span id="voteS"></span></div>
+  <button class="vbtn no" id="voteNo" type="button">No</button>
+  <button class="vbtn yes" id="voteYes" type="button">Sí</button>
+  <i class="bar" id="voteBar"></i>
+</div>
 <div class="banner" id="banner" role="status" hidden>
   <div class="tile" id="bnIc"></div>
   <div class="tx"><b id="bnT"></b><span id="bnD"></span></div>
@@ -313,7 +345,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
   <div class="segs" id="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
   <div class="listwrap">
-    <div class="lh"><span id="lhT">Cerca de ti<span class="sub" id="lhS">Avisos de la comunidad: duran 10 min</span></span><span class="chip" id="listCount">0 avisos</span></div>
+    <div class="lh"><span id="lhT">Cerca de ti<span class="sub" id="lhS">Policía 10 min · accidente 1 h · obra 24 h</span></span><span class="chip" id="listCount">0 avisos</span></div>
     <ul class="list" id="list"></ul>
   </div>
 
@@ -321,6 +353,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
     <button class="act p" id="rp" type="button"><span class="ico" data-ic="shield" data-s="22"></span>Policía</button>
     <button class="act b" id="rb" type="button"><span class="ico" data-ic="camera" data-s="22"></span>Control</button>
     <button class="act a" id="ra" type="button"><span class="ico" data-ic="alert" data-s="22"></span>Accidente</button>
+    <button class="act o" id="ro" type="button"><span class="ico" data-ic="cone" data-s="22"></span>Obra</button>
   </div>
 </section>
 
@@ -359,7 +392,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
         <button class="btn ghost" id="logout2" type="button" style="font-size:14px;padding:12px">Salir</button>
       </div>
     </div>
-    <p class="small">Prototipo de prueba. Las posiciones de los radares son aproximadas: toca un radar y «Mover aquí» para corregirlo. Los avisos de la comunidad caducan a los 10 minutos. No manipules el móvil mientras conduces: mejor que avise el copiloto.</p>
+    <p class="small">Prototipo de prueba. Las posiciones de los radares son aproximadas: toca un radar y «Mover aquí» para corregirlo. Los avisos de la comunidad caducan solos (policía 10 min, accidente 1 h, obra 24 h) y se pueden confirmar o negar. No manipules el móvil mientras conduces: mejor que avise el copiloto.</p>
   </div>
 </div>
 
@@ -374,7 +407,9 @@ const SUPABASE_URL = 'https://nbvuvslfltzjuemrbhau.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_HtwLRzqqerG4SaGyArOEMQ_D-_qyH3F'; // clave pública (segura en el navegador)
 const MAPTILER_KEY = 'mbVkaGSHfJfOxu9ortUQ'; // clave pública, restringida al dominio blindacar.vercel.app
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const REPORT_TTL = 10 * 60 * 1000;               // los avisos caducan en 10 min
+// Duración de cada aviso (la decide el servidor; esto es solo por si falta el dato)
+const TTL_MS = {p:10*60e3, b:10*60e3, a:60*60e3, o:24*3600e3};
+const TTL_TXT = 'Policía 10 min · accidente 1 h · obra 24 h';
 const RADAR_ALERT_M = 400, REPORT_ALERT_M = 300; // distancias de aviso en METROS
 const REALERT_MS = 3 * 60 * 1000;
 const CITY_LIMIT = 50;
@@ -388,6 +423,7 @@ const ICONS = {
   crosshair:'<circle cx="12" cy="12" r="10"/><line x1="22" x2="18" y1="12" y2="12"/><line x1="6" x2="2" y1="12" y2="12"/><line x1="12" x2="12" y1="6" y2="2"/><line x1="12" x2="12" y1="22" y2="18"/>',
   trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
   camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  cone:'<path d="M9.3 6.2a4.55 4.55 0 0 0 5.4 0"/><path d="M7.9 10.7c.9.8 2.4 1.3 4.1 1.3s3.2-.5 4.1-1.3"/><path d="M13.9 3.5a1.93 1.93 0 0 0-3.8-.1l-3 10c-.1.2-.1.4-.1.6 0 1.7 2.2 3 5 3s5-1.3 5-3c0-.2 0-.4-.1-.5Z"/><path d="m7.5 12.2-4.7 2.7c-.5.3-.8.7-.8 1.1s.3.8.8 1.1l7.6 4.5c.9.5 2.1.5 3 0l7.6-4.5c.7-.3 1-.7 1-1.1s-.3-.8-.8-1.1l-4.7-2.8"/>',
   alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
@@ -407,9 +443,10 @@ document.querySelectorAll('[data-ic]').forEach(el=>el.insertAdjacentHTML('afterb
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 const TYPES = {
-  p:{label:'Policía',voice:'Atención, policía a {d} metros',ic:'shield'},
-  b:{label:'Control de velocidad',voice:'Control de velocidad a {d} metros',ic:'camera'},
-  a:{label:'Accidente',voice:'Accidente a {d} metros, precaución',ic:'alert'},
+  p:{label:'Policía',voice:'Atención, policía a {d} metros',ic:'shield',ask:'¿Sigue ahí la policía?'},
+  b:{label:'Control de velocidad',voice:'Control de velocidad a {d} metros',ic:'camera',ask:'¿Sigue ahí el control?'},
+  a:{label:'Accidente',voice:'Accidente a {d} metros, precaución',ic:'alert',ask:'¿Sigue ahí el accidente?'},
+  o:{label:'Obra',voice:'Obras a {d} metros, precaución',ic:'cone',ask:'¿Siguen ahí las obras?'},
 };
 
 // ---------- Utilidades ----------
@@ -485,8 +522,13 @@ map.on('load',()=>{
 // Marcadores HTML (mismo diseño que antes) y ventanas emergentes
 function mkEl(cls,ic){const d=document.createElement('div');d.className='mk '+cls;d.innerHTML=svg(ic,18);return d}
 let popup=null;
-function closePopup(){if(popup){popup.remove();popup=null}}
-function openPopup(lat,lng,node){closePopup();popup=new maplibregl.Popup({offset:22,closeButton:false,maxWidth:'260px'}).setLngLat([lng,lat]).setDOMContent(node).addTo(map)}
+function closePopup(){if(popup){$('info').hidden=true;$('infoBody').innerHTML='';popup=null}}
+// Detalle de un aviso o radar: tarjeta fija abajo (nunca queda tapada por la barra de arriba ni por el panel)
+function openPopup(lat,lng,node){
+  if(typeof userMoved==='function'&&mode)userMoved();else follow=false;
+  if(typeof hideVote==='function')hideVote();
+  $('infoBody').innerHTML='';$('infoBody').appendChild(node);$('info').hidden=false;popup=true;
+  map.easeTo({center:[lng,lat],duration:350})}
 function addMarker(lat,lng,el,popupFn){const m=new maplibregl.Marker({element:el,anchor:'center'}).setLngLat([lng,lat]).addTo(map);
   if(popupFn)el.addEventListener('click',e=>{e.stopPropagation();openPopup(lat,lng,popupFn())});return m}
 let route = null;                                 // ruta activa (ver «Ruta» más abajo)
@@ -529,28 +571,55 @@ function drawRadars(){radarMarkers.forEach(m=>m.remove());radarMarkers=[];radars
 drawRadars();
 
 // ---------- Avisos de la comunidad ----------
-let reports = [], reportMarkers = [];
+let reports = [], reportMarkers = [], strongIds = new Set();
 const isOwn = r => !!(r.uid && session && session.user && r.uid===session.user.id);
+// Visible: no caducado y no negado por la comunidad (el servidor aplica la misma regla)
+const isActive = (r,now=Date.now()) => r.exp>now && (r.cf-r.dn)>-3;
+// Alerta fuerte: 3+ avisos del mismo tipo a menos de 100 m en 2 min, o un aviso confirmado por 2+ conductores
+function computeStrong(){strongIds=new Set();
+  reports.forEach(r=>{if(r.cf>=2){strongIds.add(r.id);return}
+    const near=reports.filter(x=>x.t===r.t&&Math.abs(x.ts-r.ts)<=120000&&dist(r.lat,r.lng,x.lat,x.lng)<=100);
+    if(near.length>=3)near.forEach(x=>strongIds.add(x.id))})}
+const isStrong = r => strongIds.has(r.id);
+function voiceFor(r,d){const t=TYPES[r.t],m=Math.round(d/50)*50;
+  return isStrong(r)?`Atención. ${t.label}, confirmado por varios conductores, a ${m} metros`:t.voice.replace('{d}',m)}
+// Votos propios (para no preguntar dos veces); se guardan solo en este móvil
+const myVotes = store.get('rn_votes',{});
+function rememberVote(id,v){myVotes[id]={v,at:Date.now()};
+  const cut=Date.now()-2*86400e3;Object.keys(myVotes).forEach(k=>{if(myVotes[k].at<cut)delete myVotes[k]});store.set('rn_votes',myVotes)}
+function popupFor(r){const t=TYPES[r.t];const d=document.createElement('div');d.className='pop';
+  d.innerHTML=`<b>${esc(t.label)}${isStrong(r)?' · confirmado':''}</b><small>Avisado ${esc(repMeta(r))}</small>`;
+  if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
+  else{const w=document.createElement('div');w.className='vb';
+    const y=document.createElement('button');y.type='button';y.className='yes';y.textContent='✓ Sigue ahí';y.onclick=()=>{closePopup();vote(r,1)};
+    const n=document.createElement('button');n.type='button';n.className='danger';n.textContent='✗ Ya no está';n.onclick=()=>{closePopup();vote(r,-1)};
+    if(myVotes[r.id])(myVotes[r.id].v>0?y:n).textContent+=' (tu voto)';
+    w.append(y,n);d.appendChild(w)}
+  return d}
 function drawReports(){reportMarkers.forEach(m=>m.remove());reportMarkers=[];const now=Date.now();
-  reports=reports.filter(r=>now-r.ts<REPORT_TTL);
+  reports=reports.filter(r=>isActive(r,now));computeStrong();
   reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
-    reportMarkers.push(addMarker(r.lat,r.lng,mkEl(r.t,t.ic),()=>{const d=document.createElement('div');d.className='pop';
-       d.innerHTML=`<b>${t.label}</b><small>Avisado ${esc(repMeta(r))}</small>`;
-       if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
-       return d}))});
+    reportMarkers.push(addMarker(r.lat,r.lng,mkEl(r.t+(isStrong(r)?' strong':''),t.ic),()=>popupFor(r)))});
   if(route)refreshRouteItems();
   renderList(true);}
+// Inserta o actualiza (tiempo real: votos y nueva caducidad llegan como UPDATE)
 function addReport(r){if(!r||!TYPES[r.t]||typeof r.lat!=='number'||typeof r.lng!=='number'||typeof r.ts!=='number')return;
   // La zona de servicio (Navarra) se valida en el servidor; las cuentas de prueba pueden avisar desde otros lugares
-  if(reports.some(x=>x.id===r.id))return;reports.push(r);}
+  const i=reports.findIndex(x=>x.id===r.id);if(i>=0)reports[i]=r;else reports.push(r)}
 function removeReport(id){reports=reports.filter(x=>x.id!==id);drawReports()}
-function rowToReport(x){return {id:x.id,t:x.type,lat:x.lat,lng:x.lng,uid:x.user_id,ts:new Date(x.created_at).getTime()}}
+function rowToReport(x){const ts=new Date(x.created_at).getTime();
+  return {id:x.id,t:x.type,lat:x.lat,lng:x.lng,uid:x.user_id,ts,
+    exp:x.expires_at?new Date(x.expires_at).getTime():ts+(TTL_MS[x.type]||TTL_MS.p),cf:x.confirms|0,dn:x.denies|0}}
+// Columnas nuevas (Fase 2). Si el servidor aún no las tiene, se usa la consulta antigua para no dejar el mapa vacío.
+const COLS='id,type,lat,lng,user_id,created_at,expires_at,confirms,denies', COLS_OLD='id,type,lat,lng,user_id,created_at';
+let legacyDb=false;
 async function pull(){
   if(!hasAccess)return;
-  const since=new Date(Date.now()-REPORT_TTL).toISOString();
-  const {data,error}=await sb.from('reports').select('id,type,lat,lng,user_id,created_at').gte('created_at',since);
-  if(error){setNet(false);return}
-  reports=[];data.forEach(x=>addReport(rowToReport(x)));drawReports();setNet(true);
+  let q=legacyDb?null:await sb.from('reports').select(COLS).gt('expires_at',new Date().toISOString());
+  if(!q||(q.error&&q.error.code==='42703')){legacyDb=true;
+    q=await sb.from('reports').select(COLS_OLD).gte('created_at',new Date(Date.now()-TTL_MS.p).toISOString())}
+  if(q.error){setNet(false);return}
+  reports=[];q.data.forEach(x=>addReport(rowToReport(x)));drawReports();setNet(true);
 }
 let netOk=null;function setNet(ok){netOk=ok}
 let rt=null;
@@ -558,6 +627,7 @@ function subscribeRealtime(){
   if(rt)return;
   rt=sb.channel('reports-live')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'reports'},p=>{addReport(rowToReport(p.new));drawReports()})
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'reports'},p=>{if(p.new&&p.new.id){addReport(rowToReport(p.new));drawReports()}})
     .on('postgres_changes',{event:'DELETE',schema:'public',table:'reports'},p=>{if(p.old&&p.old.id)removeReport(p.old.id)})
     .subscribe();
 }
@@ -569,23 +639,49 @@ async function deleteReport(id){
   closePopup();removeReport(id);toast('Aviso eliminado');
 }
 
+// Votar «sigue ahí» (+1) o «ya no está» (-1)
+async function vote(r,v){
+  if(legacyDb){toast('La votación aún no está activada');return}
+  const {data,error}=await sb.rpc('vote_report',{rid:r.id,v});
+  if(error){toast(error.code==='P0003'?'No puedes votar tu propio aviso':error.code==='P0004'?'Este aviso ya no está activo':'No se pudo enviar tu voto');
+    if(error.code==='P0004')removeReport(r.id);return}
+  rememberVote(r.id,v);
+  if(data){r.cf=data.confirms|0;r.dn=data.denies|0;if(data.expires_at)r.exp=new Date(data.expires_at).getTime()}
+  toast(v>0?'Gracias. Aviso confirmado':'Gracias. Si otros lo confirman, desaparecerá');drawReports();
+}
+// Al pasar junto a un aviso conduciendo (GPS real), se pregunta si sigue ahí, como en Waze
+let voteFor=null, voteT=null; const nearSeen={};
+function askVote(r){if(voteFor)return;voteFor=r;const t=TYPES[r.t];
+  $('voteIc').className='tile '+r.t;$('voteIc').innerHTML=svg(t.ic,20);$('voteT').textContent=t.ask;
+  $('voteS').textContent='Avisado '+ago(r.ts)+(r.cf?' · ✓ '+r.cf:'');
+  const bar=$('voteBar');bar.style.animation='none';void bar.offsetWidth;bar.style.animation='';
+  $('vote').hidden=false;clearTimeout(voteT);voteT=setTimeout(hideVote,15000)}
+function hideVote(){$('vote').hidden=true;voteFor=null;clearTimeout(voteT)}
+$('voteYes').onclick=()=>{const r=voteFor;hideVote();if(r)vote(r,1)};
+$('voteNo').onclick=()=>{const r=voteFor;hideVote();if(r)vote(r,-1)};
+function checkPassed(lat,lng){if(mode!=='gps'||legacyDb)return;
+  reports.forEach(r=>{if(isOwn(r)||myVotes[r.id])return;const d=dist(lat,lng,r.lat,r.lng);
+    if(d<50)nearSeen[r.id]=Date.now();
+    else if(nearSeen[r.id]&&d>70&&Date.now()-nearSeen[r.id]<120000){delete nearSeen[r.id];myVotes[r.id]||askVote(r)}})}
+
 let lastSent = store.get('rn_last',0);
 async function report(t){
   if(!hasAccess){toast('Necesitas acceso para avisar');return}
   if(!me){toast('Esperando tu posición…');return}
   if(Date.now()-lastSent<60000){toast('Espera un minuto entre avisos');return}
-  const {data,error}=await sb.from('reports').insert({type:t,lat:+me.lat.toFixed(5),lng:+me.lng.toFixed(5)}).select('id,type,lat,lng,user_id,created_at').single();
-  if(error){toast(error.code==='P0001'?'Espera un minuto entre avisos':error.code==='P0002'?'Solo disponible en la zona de Pamplona':'No se pudo enviar el aviso');return}
+  const {data,error}=await sb.from('reports').insert({type:t,lat:+me.lat.toFixed(5),lng:+me.lng.toFixed(5)}).select(legacyDb?COLS_OLD:COLS).single();
+  if(error){toast(error.code==='P0001'?'Espera un minuto entre avisos':error.code==='P0002'?'Solo disponible en la zona de Pamplona':
+    error.code==='23514'?'Este tipo de aviso aún no está disponible':'No se pudo enviar el aviso');return}
   lastSent=Date.now();store.set('rn_last',lastSent);
   addReport(rowToReport(data));drawReports();
   toast(TYPES[t].label+' avisado. Gracias');
 }
-$('rp').onclick=()=>report('p');$('rb').onclick=()=>report('b');$('ra').onclick=()=>report('a');
+$('rp').onclick=()=>report('p');$('rb').onclick=()=>report('b');$('ra').onclick=()=>report('a');$('ro').onclick=()=>report('o');
 
 // ---------- Panel: lista de avisos ----------
 let lastList=0;
-function repMeta(r){const left=Math.max(1,Math.ceil((REPORT_TTL-(Date.now()-r.ts))/60000));
-  return ago(r.ts)+' · caduca en '+left+' min'+(isOwn(r)?' · tuyo':'')}
+function repMeta(r){const m=Math.max(1,Math.ceil((r.exp-Date.now())/60000));
+  return ago(r.ts)+' · caduca en '+(m<60?m+' min':Math.round(m/60)+' h')+(r.cf?' · ✓ '+r.cf:'')+(isOwn(r)?' · tuyo':'')}
 function addInfo(ul,t){const li=document.createElement('li');li.className='info';li.textContent=t;ul.appendChild(li)}
 function renderList(force){
   const now=Date.now();if(!force&&now-lastList<3000)return;lastList=now;
@@ -597,11 +693,11 @@ function renderList(force){
   if(me)items.sort((a,b)=>a.d-b.d);
   else items.sort((a,b)=>(a.k===b.k?(b.ts||0)-(a.ts||0):(a.k==='rep'?-1:1)));
   const shown=items.slice(0,8);
-  $('lhT').firstChild.textContent='Cerca de ti';$('lhS').textContent='Avisos de la comunidad: duran 10 min';
+  $('lhT').firstChild.textContent='Cerca de ti';$('lhS').textContent=TTL_TXT;
   $('listCount').textContent=reports.length===1?'1 aviso':reports.length+' avisos';
   const ul=$('list');ul.innerHTML='';
-  // Los avisos caducan a los 10 min: lo normal es que la lista de avisos esté vacía
-  if(!reports.length)addInfo(ul,'Ahora no hay avisos de la comunidad. Cada aviso se ve solo 10 minutos; los radares fijos siempre aparecen.');
+  // Los avisos caducan (policía en 10 min): es normal que la lista de avisos esté vacía
+  if(!reports.length)addInfo(ul,'Ahora no hay avisos de la comunidad. Policía y control se ven 10 min, accidentes 1 h y obras 24 h; los radares fijos siempre aparecen.');
   if(!shown.length&&hasAccess)addInfo(ul,'No se ha cargado ningún radar todavía.');
   shown.forEach(it=>{
     const li=document.createElement('li');li.className='row';
@@ -685,7 +781,8 @@ async function runSearch(){const el=$(activeQ),v=el.value.trim();if(v.length<3)r
   $(xid).onclick=()=>{$(id).value='';$(xid).hidden=true;qSeq++;$('sugs').hidden=true;
     if(id==='qf'){origin=null;toast('Salida: mi ubicación');if(route)planRoute(route.dest)}
     $(id).focus();setSheetH()}});
-map.on('click',()=>{if(sheet.classList.contains('searching')){$('q').blur();setSearching(false)}});
+map.on('click',()=>{closePopup();if(sheet.classList.contains('searching')){$('q').blur();setSearching(false)}});
+$('infoX').onclick=closePopup;
 
 // Calcular la ruta (también para recalcular si el conductor se sale)
 async function planRoute(dest,opts={}){
@@ -766,7 +863,7 @@ function renderRouteList(){
   const ahead=route.items.filter(it=>it.along-from>-BEHIND_M);
   $('lhT').firstChild.textContent='En tu ruta';$('lhS').textContent='Radares y avisos a menos de 100 m del trayecto';
   $('listCount').textContent=nAvisos(ahead.length);
-  if(!ahead.length)addInfo(ul,route.items.length?'Ya has pasado todos los avisos de esta ruta.':'Ningún radar ni aviso a menos de 100 m de esta ruta. Los avisos de la comunidad duran 10 minutos.');
+  if(!ahead.length)addInfo(ul,route.items.length?'Ya has pasado todos los avisos de esta ruta.':'Ningún radar ni aviso a menos de 100 m de esta ruta. Policía y control se ven 10 min, accidentes 1 h y obras 24 h.');
   ahead.forEach(it=>{const r=it.ref,isR=it.k==='rad',t=isR?null:TYPES[r.t];
     const li=document.createElement('li');li.className='row';
     li.innerHTML=`<div class="tile ${isR?'':r.t}">${svg(isR?'gauge':t.ic,18)}</div><div class="tx"><div class="n">${esc(isR?r.name:t.label)}</div><div class="m">${esc(isR?'Radar fijo · '+r.lim+' km/h':repMeta(r))}</div></div><div class="dd">${fmtDist(Math.max(0,it.along-from))}</div>`;
@@ -799,8 +896,8 @@ function routeTick(lat,lng,now){
     const again=!alerted[it.id]||now-alerted[it.id]>REALERT_MS;
     if(it.k==='rad'){if(!best)best={d,title:'Radar fijo',sub:r.name+' · en tu ruta',ic:'gauge',cls:'',lim:r.lim};
       if(d<RADAR_ALERT_M&&again){alerted[it.id]=now;say(`Radar fijo a ${Math.round(d/50)*50} metros. Límite ${r.lim}`)}}
-    else{const t=TYPES[r.t];if(!best)best={d,title:t.label,sub:ago(r.ts)+' · en tu ruta',ic:t.ic,cls:r.t};
-      if(d<REPORT_ALERT_M&&again){alerted[it.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}}});
+    else{const t=TYPES[r.t];if(!best)best={d,title:t.label+(isStrong(r)?' · confirmado':''),sub:ago(r.ts)+' · en tu ruta',ic:t.ic,cls:r.t};
+      if(d<REPORT_ALERT_M&&again){alerted[it.id]=now;say(voiceFor(r,d))}}});
   if(route.nav){
     if(a.geo.len-p.along<ARRIVE_M&&p.off<OFF_ROUTE_M){say('Has llegado a tu destino');toast('Has llegado: '+route.dest.name);clearRoute();return null}
     route.off=p.off;
@@ -921,9 +1018,10 @@ function onPos(lat,lng,speedMs,ts,gpsHeading,acc){
   radars.forEach(r=>{const d=dist(lat,lng,r.lat,r.lng);if(d<NEAR_M&&(!best||d<best.d))best={d,title:'Radar fijo',sub:r.name,ic:'gauge',cls:'',lim:r.lim}
     if(d<RADAR_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(`Radar fijo a ${Math.round(d/50)*50} metros. Límite ${r.lim}`)}});
   reports.forEach(r=>{const d=dist(lat,lng,r.lat,r.lng);const t=TYPES[r.t];
-    if(d<NEAR_M&&(!best||d<best.d))best={d,title:t.label,sub:ago(r.ts),ic:t.ic,cls:r.t};
-    if(d<REPORT_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(t.voice.replace('{d}',Math.round(d/50)*50))}});
+    if(d<NEAR_M&&(!best||d<best.d))best={d,title:t.label+(isStrong(r)?' · confirmado':''),sub:ago(r.ts),ic:t.ic,cls:r.t};
+    if(d<REPORT_ALERT_M&&(!alerted[r.id]||now-alerted[r.id]>REALERT_MS)){alerted[r.id]=now;say(voiceFor(r,d))}});
   }
+  checkPassed(lat,lng);
 
   // Posición mostrada: pegada a la carretera de la ruta si está a menos de 30 m; rumbo de la ruta o del GPS
   let pos=[lat,lng];
