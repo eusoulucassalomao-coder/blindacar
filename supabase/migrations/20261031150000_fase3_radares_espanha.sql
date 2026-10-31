@@ -105,6 +105,7 @@ begin
     if n_osm > 100 then
       update public.radars set active = false, updated_at = now()
         where source = 'osm' and active and updated_at < now() - interval '1 minute';
+      update public.radars set active = false where source = 'manual' and active;
     end if;
   end if;
 
@@ -138,9 +139,9 @@ end $$;
 revoke all on function public.import_radars_from(text, jsonb) from public, anon, authenticated;
 revoke all on function public.import_radars() from public, anon, authenticated;
 
--- 4) Os 14 radares atuais de Pamplona eram aproximados: ficam guardados, mas desativados
---    (o OpenStreetMap tem 21 radares mapeados em Pamplona). Para voltar: update public.radars set active = true where source = 'manual';
-update public.radars set active = false where source = 'manual';
+-- 4) Os 14 radares antigos de Pamplona (aproximados) são desativados pela própria importação,
+--    só quando ela trouxer os radares do OpenStreetMap (que tem 21 mapeados em Pamplona).
+--    Para voltar: update public.radars set active = true where source = 'manual';
 
 -- 5) Avisos da comunidade aceitos em toda a Espanha (península, Baleares, Canárias, Ceuta e Melilla)
 create or replace function public.reports_region_check()
