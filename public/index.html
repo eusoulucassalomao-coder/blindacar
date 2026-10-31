@@ -1025,7 +1025,9 @@ function renderRouteList(){
     if(isD||isR)li.style.cursor='pointer',li.onclick=()=>openPopup(r.lat,r.lng,isD?dgtPopup(r):radarPopup(r));
     if(!isR&&isOwn(r)){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(r.id);li.appendChild(b)}
     ul.appendChild(li)})}
+let simFromGps=false; // la simulación se lanzó desde el GPS: al terminar la ruta se vuelve al GPS
 function startSim(){ // Solo cuando el usuario lo pide con «Ver simulación del recorrido»
+  simFromGps=simFromGps||mode==='gps';
   if(watchId!=null){try{navigator.geolocation.clearWatch(watchId)}catch(e){}watchId=null}
   mode='demo';$('dot').className='dot demo';$('stxt').textContent='Simulación de ruta';
   route.nav=true;route.offN=0;follow=true;sheet.classList.add('min');demoFollow(route.alts[route.sel].coords);runDemoTimer();
@@ -1044,7 +1046,10 @@ $('rStart').onclick=()=>{if(!route)return;
   renderRouteBox();renderList(true)};
 $('rClose').onclick=()=>{const was=route&&route.nav;clearRoute();toast(was?'Ruta terminada':'Ruta cancelada')};
 function clearRoute(){planSeq++;route=null;drawRoute();setHalos();
-  $('q').value='';$('qx').hidden=true;origin=null;$('qf').value='';$('qfx').hidden=true;renderRouteBox();renderList(true);if(mode==='demo')demoFollow(null)}
+  $('q').value='';$('qx').hidden=true;origin=null;$('qf').value='';$('qfx').hidden=true;renderRouteBox();renderList(true);
+  // Al llegar o cerrar la ruta: si la simulación salió del GPS, se para y vuelve el GPS real (antes seguía moviéndose sola por el recorrido de ejemplo)
+  if(mode==='demo'&&simFromGps)stopSim();else if(mode==='demo')demoFollow(null)}
+function stopSim(){simFromGps=false;clearInterval(demoT);demoT=null;demoPts=[];demoI=0;startGps();toast('Simulación terminada. Vuelve tu GPS')}
 // En cada posición GPS: próximo aviso de la ruta, aviso por voz, fuera de ruta y llegada
 function routeTick(lat,lng,now){
   const a=route.alts[route.sel],p=project(a.geo,lat,lng);route.userAlong=p.along;let best=null;
@@ -1241,15 +1246,19 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 
 $('go').onclick=()=>{
   if(!('geolocation' in navigator)){toast('Este navegador no da la ubicación');return}
-  mode='gps';$('start').hidden=true;say('Buen viaje');keepAwake();
-  $('dot').className='dot on';$('stxt').textContent='Buscando GPS…';
+  $('start').hidden=true;say('Buen viaje');keepAwake();startGps();
+};
+function startGps(){
+  if(!('geolocation' in navigator))return;
+  mode='gps';$('dot').className='dot on';$('stxt').textContent='Buscando GPS…';
+  if(watchId!=null){try{navigator.geolocation.clearWatch(watchId)}catch(e){}}
   watchId=navigator.geolocation.watchPosition(p=>{const a=p.coords.accuracy;
       $('stxt').textContent='GPS activo'+(a?' · ±'+Math.round(a)+' m':'');$('dot').className='dot '+(a&&a>60?'demo':'on');
       onPos(p.coords.latitude,p.coords.longitude,p.coords.speed,p.timestamp,p.coords.heading,a)},
     err=>{$('stxt').textContent='Sin GPS';$('dot').className='dot';
       toast(err.code===1?'Permite la ubicación en el navegador para usar el GPS':'No llega la señal GPS')},
     {enableHighAccuracy:true,maximumAge:0,timeout:15000});
-};
+}
 
 // Recorrido de ejemplo: Landaben → Pío XII → Ejército → Baja Navarra → Beloso.
 // Si se inicia una ruta en modo ejemplo, el recorrido sigue esa ruta (sirve para probar la navegación sin conducir).
