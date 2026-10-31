@@ -21,9 +21,12 @@ Proyecto Supabase ya creado: `blindacar` (ref `nbvuvslfltzjuemrbhau`, región Pa
 - Sin sesión de Google (o con `has_access = false`) no se pueden leer radares ni avisos (RLS en la base de datos), aunque se abra el código fuente.
 - `has_access` tiene valor por defecto `true` (app gratuita). El cliente no puede modificarlo; las reglas RLS siguen exigiéndolo, así que para bloquear a alguien basta con ponerlo en `false`.
 - Límite de 1 aviso por minuto por usuario, reforzado en la base de datos.
-- Los avisos se muestran 10 min; los más antiguos de 1 h se pueden borrar con `select public.purge_old_reports();` (programable con pg_cron).
+- Duración de los avisos (la fija el servidor): policía y control 10 min, accidente 1 h, obra 24 h. «Sigue ahí» renueva el aviso; con 3 «ya no está» más que confirmaciones, desaparece. Los caducados hace más de 1 h se borran con `select public.purge_old_reports();` (programable con pg_cron).
 - Rutas (Geoapify, plan gratuito con uso comercial y atribución «Powered by Geoapify»): se marcan los radares y avisos a menos de 100 m del trayecto. `/api/route` y `/api/geocode` solo responden a cuentas con acceso.
-- Pendiente: coordenadas reales de las cabinas (hoy aproximadas, `verified=false` en la tabla `radars`).
+- Radares de toda España: **DGT** (oficial, CC-BY; todo el país salvo Navarra, País Vasco y Cataluña) + **OpenStreetMap** (ODbL; Navarra, País Vasco y Cataluña). Para actualizarlos, en el SQL Editor de Supabase: `select public.import_radars();` (el app no puede lanzarlo). Los 14 radares manuales antiguos de Pamplona quedan guardados y desactivados.
+- Incidencias de tráfico oficiales: `/api/incidents` lee el feed DATEX II de la DGT (obras, cortes, retenciones, accidentes, vehículos parados por baliza V16, meteorología), con 5 min de caché en la CDN. Las retenciones y obras que caen en la ruta se pintan sobre el trazado. No usa datos de los usuarios.
+- Avisos de la comunidad aceptados en toda España (península, Baleares, Canarias, Ceuta y Melilla).
+- Atribución obligatoria en el mapa: «Radares e incidencias: DGT», © OpenStreetMap, © MapTiler, Powered by Geoapify.
 
 ## Variables de entorno (Vercel)
 Se configuran en Vercel > proyecto `blindacar` > Settings > Environment Variables, para **Production** y **Preview**. Nunca en el código ni en el repositorio.
@@ -32,10 +35,7 @@ Se configuran en Vercel > proyecto `blindacar` > Settings > Environment Variable
 |---|---|---|
 | `SUPABASE_URL` | URL del proyecto Supabase | No |
 | `SUPABASE_SERVICE_ROLE_KEY` | Acceso de servidor a Supabase (`/api`) | **Sí** |
-| `STRIPE_SECRET_KEY` | API de Stripe (`/api/checkout`, webhook) | **Sí** |
-| `STRIPE_PRICE_ID` | Precio del pago único | No |
-| `STRIPE_WEBHOOK_SECRET` | Verificación de firma del webhook | **Sí** |
-| `APP_URL` | (opcional) URL pública para las redirecciones de Stripe | No |
+| `GEOAPIFY_API_KEY` | Rutas y búsqueda de destino (`/api/route`, `/api/geocode`) | **Sí** |
 
 Claves públicas por diseño, presentes en `public/index.html`: la *publishable key* de Supabase (`sb_publishable_...`, protegida por RLS) y la clave de MapTiler (restringida por dominio). Ninguna otra clave debe aparecer en el código.
 
@@ -43,7 +43,7 @@ Claves públicas por diseño, presentes en `public/index.html`: la *publishable 
 - Preset: **Other** · sin *build command* · *Output Directory* `public` (ya definido en `vercel.json`).
 - Push a `main` → **producción** (`blindacar.vercel.app`).
 - Cualquier otra rama → **preview** con su propia URL.
-- Las previews usan las variables del entorno *Preview*: usa allí claves de prueba de Stripe (`sk_test_...`).
+- Las previews usan las variables del entorno *Preview* (pueden ser las mismas que en producción).
 
 ## Flujo de trabajo
 1. Una rama por tarea desde `main` (`feat/...`, `fix/...`, `chore/...`).
