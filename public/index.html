@@ -252,7 +252,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
 .note{background:#fff7ed;color:#9a3412;border-radius:14px;padding:10px 12px;font-size:13px;font-weight:600;line-height:1.45;text-align:left}
 .note b{color:#7c2d12}
 .lh .sub{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:1px}
-.list li.info{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.45;background:#fff;border-radius:14px;padding:8px 12px;border:1.5px dashed #a7f3d0}
+.list li.hint{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.45;background:#fff;border-radius:14px;padding:8px 12px;border:1.5px dashed #a7f3d0}
 
 .toast{position:fixed;z-index:200;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h,260px) + 24px);
   background:var(--ink);color:#fff;border-radius:14px;padding:11px 16px;font-weight:700;font-size:13px;max-width:90%;text-align:center;box-shadow:var(--sh)}
@@ -761,7 +761,7 @@ $('rp').onclick=()=>report('p');$('rb').onclick=()=>report('b');$('ra').onclick=
 let lastList=0;
 function repMeta(r){const m=Math.max(1,Math.ceil((r.exp-Date.now())/60000));
   return ago(r.ts)+' · caduca en '+(m<60?m+' min':Math.round(m/60)+' h')+(r.cf?' · ✓ '+r.cf:'')+(isOwn(r)?' · tuyo':'')}
-function addInfo(ul,t){const li=document.createElement('li');li.className='info';li.textContent=t;ul.appendChild(li)}
+function addInfo(ul,t){const li=document.createElement('li');li.className='hint';li.textContent=t;ul.appendChild(li)}
 function renderList(force){
   const now=Date.now();if(!force&&now-lastList<3000)return;lastList=now;
   if(route){renderRouteList();return}
@@ -775,10 +775,9 @@ function renderList(force){
   else items.sort((a,b)=>(a.k===b.k?(b.ts||0)-(a.ts||0):(a.k==='rep'?-1:1)));
   const shown=items.slice(0,8);
   $('lhT').firstChild.textContent='Cerca de ti';$('lhS').textContent=TTL_TXT;
-  $('listCount').textContent=reports.length===1?'1 aviso':reports.length+' avisos';
+  $('listCount').textContent=items.length===1?'1 aviso':items.length+' avisos';
   const ul=$('list');ul.innerHTML='';
   // Los avisos caducan (policía en 10 min): es normal que la lista de avisos esté vacía
-  if(!reports.length)addInfo(ul,'Ahora no hay avisos de la comunidad. Policía y control se ven 10 min, accidentes 1 h y obras 24 h; los radares fijos siempre aparecen.');
   if(!shown.length&&hasAccess)addInfo(ul,'No se ha cargado ningún radar todavía.');
   shown.forEach(it=>{
     const li=document.createElement('li');li.className='row';
@@ -786,6 +785,8 @@ function renderList(force){
     if(it.k==='rad'||it.k==='dgt'){li.style.cursor='pointer';li.onclick=()=>openPopup(it.ref.lat,it.ref.lng,it.k==='dgt'?dgtPopup(it.ref):radarPopup(it.ref))}
     if(it.own){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(it.id);li.appendChild(b)}
     ul.appendChild(li)});
+  // Los avisos caducan (policía en 10 min): es normal que no haya ninguno de la comunidad
+  if(!reports.length&&shown.length)addInfo(ul,'Ahora no hay avisos de la comunidad cerca. Si ves algo, avisa con los botones de abajo.');
 }
 
 // ---------- Ruta: destino, alternativas y avisos en el camino ----------
