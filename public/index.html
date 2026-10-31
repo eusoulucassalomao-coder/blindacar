@@ -137,6 +137,11 @@ body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px
 .mk.o{--c:#ca8a04} .tile.o{background:linear-gradient(160deg,#facc15,#ca8a04)} .tile.sec{background:linear-gradient(160deg,#a78bfa,#7c3aed)}
 /* Alerta fuerte: varios conductores avisan lo mismo en el mismo sitio */
 .mk.strong{animation:strong 1.2s ease-out infinite}
+.mk.demo{border-style:dashed;position:relative}
+.mk.demo::after{content:'DEMO';position:absolute;bottom:-13px;left:50%;transform:translateX(-50%);background:#f97316;color:#fff;font-size:8px;font-weight:900;letter-spacing:.04em;border-radius:5px;padding:1px 4px}
+.chip.demo{background:#fff7ed;color:#c2410c;border:1.5px dashed #fb923c;cursor:pointer;font-family:inherit}
+.chip.demo.on{background:#f97316;color:#fff;border-style:solid}
+.lh .chips{display:flex;gap:6px;align-items:center}
 @keyframes strong{0%{box-shadow:0 0 0 0 rgba(220,38,38,.65),0 6px 14px -2px rgba(15,23,42,.35)}100%{box-shadow:0 0 0 16px rgba(220,38,38,0),0 6px 14px -2px rgba(15,23,42,.35)}}
 .info{position:fixed;z-index:31;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:min(calc(100% - 28px),440px);
   background:#fff;border-radius:20px;padding:14px 46px 14px 16px;box-shadow:var(--sh)}
@@ -252,6 +257,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
 .note{background:#fff7ed;color:#9a3412;border-radius:14px;padding:10px 12px;font-size:13px;font-weight:600;line-height:1.45;text-align:left}
 .note b{color:#7c2d12}
 .lh .sub{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-top:1px}
+.list li.hint.camp{border-color:#93c5fd;background:#eff6ff;color:#1e3a8a}
 .list li.hint{font-size:11.5px;color:var(--muted);font-weight:600;line-height:1.45;background:#fff;border-radius:14px;padding:8px 12px;border:1.5px dashed #a7f3d0}
 
 .toast{position:fixed;z-index:200;left:50%;transform:translateX(-50%);bottom:calc(var(--sheet-h,260px) + 24px);
@@ -345,7 +351,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
   <div class="segs" id="segs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
   <div class="listwrap">
-    <div class="lh"><span id="lhT">Cerca de ti<span class="sub" id="lhS">Policía 10 min · accidente 1 h · obra 24 h</span></span><span class="chip" id="listCount">0 avisos</span></div>
+    <div class="lh"><span id="lhT">Cerca de ti<span class="sub" id="lhS">Policía 10 min · accidente 1 h · obra 24 h</span></span><span class="chips"><button class="chip demo" id="demoChip" type="button" hidden aria-pressed="false" title="Avisos de ejemplo, solo para cuentas de prueba">Demo</button><span class="chip" id="listCount">0 avisos</span></span></div>
     <ul class="list" id="list"></ul>
   </div>
 
@@ -468,6 +474,40 @@ function dist(a,b,c,d){const R=6371000,r=Math.PI/180,x=(c-a)*r,y=(d-b)*r;
 function fmtDist(m){return m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.round(m/10)*10+' m'}
 function ago(ts){const m=Math.round((Date.now()-ts)/60000);return m<1?'ahora':'hace '+m+' min'}
 let toastT;function toast(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>el.hidden=true,2600)}
+
+// ---------- Modo demostración (solo cuentas de prueba: profiles.is_tester) ----------
+// Avisos de ejemplo de policía, control, accidente y obra para probar mapa, voz, ruta y votos sin esperar a la comunidad.
+// Viven solo en este móvil: no se guardan en el servidor y nadie más los ve.
+let isTester=false, demoOn=false, demoReps=[];
+const DEMO_PLAN=[['p',500],['b',1400],['a',2600],['p',4000],['o',5500]]; // tipo y metros por delante
+function makeDemo(){const now=Date.now();let pts=null;
+  if(route){const a=route.alts[route.sel],base=route.userAlong||0;
+    pts=DEMO_PLAN.filter(([,d])=>base+d<a.geo.len-50).map(([t,d])=>[t,...pointAt(a,base+d)])}
+  if(!pts||!pts.length){const c=me||{lat:map.getCenter().lat,lng:map.getCenter().lng},kx=Math.cos(c.lat*Math.PI/180);
+    pts=DEMO_PLAN.map(([t,d],k)=>{const g=(20+k*72)*Math.PI/180;return [t,c.lat+Math.cos(g)*d/M_DEG,c.lng+Math.sin(g)*d/(M_DEG*kx)]})}
+  demoReps=pts.map(([t,lat,lng],k)=>({id:'demo-'+now+'-'+k,t,lat,lng,uid:null,ts:now-(2+k*3)*60000,exp:now+3600e3,cf:k===1?2:0,dn:0,demo:true}))}
+function setDemo(on,quiet){demoOn=!!on&&isTester;store.set('rn_demo',demoOn);
+  const b=$('demoChip');b.classList.toggle('on',demoOn);b.textContent=demoOn?'Demo ✓':'Demo';b.setAttribute('aria-pressed',demoOn);
+  reports=reports.filter(r=>!r.demo);demoReps=[];if(demoOn)makeDemo();drawReports();
+  if(!quiet)toast(demoOn?'Modo demo: avisos de ejemplo solo para ti':'Modo demo desactivado')}
+$('demoChip').onclick=()=>setDemo(!demoOn);
+
+// ---------- Campañas especiales de vigilancia de la DGT (más controles en carretera esa semana) ----------
+// Calendario oficial 2026: Instrucción DGT MOV 2025/21, Anexo I. Hay que añadir el de 2027 cuando se publique.
+const DGT_CAMP=[['2026-01-19','2026-01-23','transporte escolar'],['2026-02-09','2026-02-15','camiones y autobuses'],
+  ['2026-03-09','2026-03-15','cinturón y sillas infantiles'],['2026-04-13','2026-04-19','velocidad'],['2026-07-13','2026-07-19','alcohol y drogas'],
+  ['2026-08-03','2026-08-09','velocidad'],['2026-10-05','2026-10-11','distracciones'],['2026-11-09','2026-11-13','transporte escolar'],
+  ['2026-11-23','2026-11-29','furgonetas'],['2026-12-14','2026-12-20','alcohol y drogas']];
+function campaignTxt(now=new Date()){
+  const day=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const today=day(now),soon=day(new Date(now.getTime()+3*86400e3));
+  const fmt=x=>new Date(x+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'long'});
+  const cur=DGT_CAMP.find(([a,b])=>a<=today&&today<=b);
+  if(cur)return `Campaña DGT de ${cur[2]} hasta el ${fmt(cur[1])}: más controles en carretera.`;
+  const next=DGT_CAMP.find(([a])=>a>today&&a<=soon);
+  if(!next)return '';const same=next[0].slice(5,7)===next[1].slice(5,7);
+  return `Del ${same?+next[0].slice(8):fmt(next[0])} al ${fmt(next[1])}: campaña DGT de ${next[2]}, con más controles.`}
+
 
 // Altura del panel inferior -> variable CSS (para botón de centrar, atribución y avisos)
 const sheet = $('sheet');
@@ -661,13 +701,14 @@ function computeStrong(){strongIds=new Set();
     if(near.length>=3)near.forEach(x=>strongIds.add(x.id))})}
 const isStrong = r => strongIds.has(r.id);
 function voiceFor(r,d){const t=TYPES[r.t],m=Math.round(d/50)*50;
+  if(r.demo)return 'Demostración. '+t.voice.replace('{d}',m);
   return isStrong(r)?`Atención. ${t.label}, confirmado por varios conductores, a ${m} metros`:t.voice.replace('{d}',m)}
 // Votos propios (para no preguntar dos veces); se guardan solo en este móvil
 const myVotes = store.get('rn_votes',{});
 function rememberVote(id,v){myVotes[id]={v,at:Date.now()};
   const cut=Date.now()-2*86400e3;Object.keys(myVotes).forEach(k=>{if(myVotes[k].at<cut)delete myVotes[k]});store.set('rn_votes',myVotes)}
 function popupFor(r){const t=TYPES[r.t];const d=document.createElement('div');d.className='pop';
-  d.innerHTML=`<b>${esc(t.label)}${isStrong(r)?' · confirmado':''}</b><small>Avisado ${esc(repMeta(r))}</small>`;
+  d.innerHTML=`<b>${esc(t.label)}${r.demo?' · DEMO':''}${isStrong(r)?' · confirmado':''}</b><small>Avisado ${esc(repMeta(r))}</small>`;
   if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
   else{const w=document.createElement('div');w.className='vb';
     const y=document.createElement('button');y.type='button';y.className='yes';y.textContent='✓ Sigue ahí';y.onclick=()=>{closePopup();vote(r,1)};
@@ -676,9 +717,11 @@ function popupFor(r){const t=TYPES[r.t];const d=document.createElement('div');d.
     w.append(y,n);d.appendChild(w)}
   return d}
 function drawReports(){reportMarkers.forEach(m=>m.remove());reportMarkers=[];const now=Date.now();
+  if(demoOn){if(!demoReps.length||demoReps.every(r=>r.exp<now))makeDemo();
+    demoReps.forEach(r=>{if(!reports.some(x=>x.id===r.id))reports.push(r)})}
   reports=reports.filter(r=>isActive(r,now));computeStrong();
   reports.forEach(r=>{const t=TYPES[r.t];if(!t)return;
-    reportMarkers.push(addMarker(r.lat,r.lng,mkEl(r.t+(isStrong(r)?' strong':''),t.ic),()=>popupFor(r)))});
+    reportMarkers.push(addMarker(r.lat,r.lng,mkEl(r.t+(isStrong(r)?' strong':'')+(r.demo?' demo':''),t.ic),()=>popupFor(r)))});
   if(route)refreshRouteItems();
   renderList(true);}
 // Inserta o actualiza (tiempo real: votos y nueva caducidad llegan como UPDATE)
@@ -720,6 +763,7 @@ async function deleteReport(id){
 
 // Votar «sigue ahí» (+1) o «ya no está» (-1)
 async function vote(r,v){
+  if(r.demo){if(v>0)r.cf++;else r.dn++;rememberVote(r.id,v);toast('Voto de prueba (modo demo): no se envía');drawReports();return}
   if(legacyDb){toast('La votación aún no está activada');return}
   const {data,error}=await sb.rpc('vote_report',{rid:r.id,v});
   if(error){toast(error.code==='P0003'?'No puedes votar tu propio aviso':error.code==='P0004'?'Este aviso ya no está activo':'No se pudo enviar tu voto');
@@ -760,7 +804,7 @@ $('rp').onclick=()=>report('p');$('rb').onclick=()=>report('b');$('ra').onclick=
 // ---------- Panel: lista de avisos ----------
 let lastList=0;
 function repMeta(r){const m=Math.max(1,Math.ceil((r.exp-Date.now())/60000));
-  return ago(r.ts)+' · caduca en '+(m<60?m+' min':Math.round(m/60)+' h')+(r.cf?' · ✓ '+r.cf:'')+(isOwn(r)?' · tuyo':'')}
+  return (r.demo?'DEMO · ':'')+ago(r.ts)+' · caduca en '+(m<60?m+' min':Math.round(m/60)+' h')+(r.cf?' · ✓ '+r.cf:'')+(isOwn(r)?' · tuyo':'')}
 function addInfo(ul,t){const li=document.createElement('li');li.className='hint';li.textContent=t;ul.appendChild(li)}
 function renderList(force){
   const now=Date.now();if(!force&&now-lastList<3000)return;lastList=now;
@@ -778,6 +822,7 @@ function renderList(force){
   $('listCount').textContent=items.length===1?'1 aviso':items.length+' avisos';
   const ul=$('list');ul.innerHTML='';
   // Los avisos caducan (policía en 10 min): es normal que la lista de avisos esté vacía
+  const camp=campaignTxt();if(camp){addInfo(ul,camp);ul.lastChild.classList.add('camp')}
   if(!shown.length&&hasAccess)addInfo(ul,'No se ha cargado ningún radar todavía.');
   shown.forEach(it=>{
     const li=document.createElement('li');li.className='row';
@@ -890,6 +935,7 @@ async function planRoute(dest,opts={}){
   if(!alts.length){if(!nav)$('rMeta').textContent=API_ERR.no_route;return}
   route={dest,alts:alts.map(r=>({...r,geo:prepRoute(r.coords),n:0})),sel:0,nav,items:[],userAlong:0,offN:0,lastRe:Date.now()};
   route.userAlong=(origin&&!nav)?0:(me?project(route.alts[0].geo,me.lat,me.lng).along:0);
+  if(demoOn&&!nav){reports=reports.filter(r=>!r.demo);makeDemo();drawReports()} // demo: avisos de ejemplo sobre la ruta nueva
   drawRoute();refreshRouteItems();renderRouteBox();renderList(true);
   if(nav){sheet.classList.add('min');setSheetH();say('Ruta recalculada');if(follow&&shown)centerOn(shown[0],shown[1],navZoom(lastKmh),true);return}
   fitRoute();
@@ -1165,10 +1211,13 @@ async function refreshAccess(){
   const {data:{session:s}}=await sb.auth.getSession();session=s;
   if(!s){hasAccess=false;setView('vLogin');return}
   $('who').textContent=s.user.email||'';
-  const {data,error}=await sb.from('profiles').select('has_access').eq('id',s.user.id).maybeSingle();
+  let {data,error}=await sb.from('profiles').select('has_access,is_tester').eq('id',s.user.id).maybeSingle();
+  if(error&&error.code==='42703')({data,error}=await sb.from('profiles').select('has_access').eq('id',s.user.id).maybeSingle());
   // Antes volvía a "Entrar con Google" aunque la sesión fuera válida: ahora se explica y se puede reintentar
   if(error){hasAccess=false;setView('vErr');return}
   hasAccess=!!(data&&data.has_access);
+  isTester=!!(data&&data.is_tester);$('demoChip').hidden=!isTester;
+  if(isTester&&store.get('rn_demo',false))setDemo(true,true);
   setView(hasAccess?'vReady':'vPay');
   if(hasAccess){await loadRadars();await pull();subscribeRealtime();pullDgt()}
 }
