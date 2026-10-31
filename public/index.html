@@ -30,6 +30,9 @@ svg{display:block}
 .maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{bottom:var(--sheet-h,0px)!important}
 .maplibregl-ctrl-attrib{font:500 9px var(--font)!important;background:rgba(255,255,255,.85)!important}
 .maplibregl-ctrl-attrib a{color:var(--muted)!important}
+/* Créditos: nunca por debajo del botón de centrar (derecha); si no caben en una línea, bajan a la siguiente */
+.maplibregl-ctrl-bottom-left{right:calc(max(14px,env(safe-area-inset-right,0px)) + 64px)}
+.maplibregl-ctrl-bottom-left .maplibregl-ctrl-attrib.maplibregl-compact-show{max-width:100%;line-height:1.35}
 .maplibregl-popup-content{border-radius:16px;box-shadow:var(--sh);font:500 13px var(--font);padding:12px 14px}
 .maplibregl-marker{cursor:pointer}
 .pop b{display:block;font-size:14px;margin-bottom:2px}
@@ -531,7 +534,7 @@ const map = new maplibregl.Map({container:'map',style:'https://api.maptiler.com/
   center:[-1.6458,42.8125],zoom:14,maxPitch:70,attributionControl:false});
 // Rutas y búsqueda: Geoapify (plan gratuito con uso comercial; exige atribución)
 map.addControl(new maplibregl.AttributionControl({compact:true,
-  customAttribution:'Radares e incidencias: <a href="https://nap.dgt.es/" target="_blank" rel="noopener">DGT</a>, SCT, Gobierno Vasco · <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>'}),'bottom-left');
+  customAttribution:'Tráfico: <a href="https://nap.dgt.es/" target="_blank" rel="noopener">DGT</a> · SCT · Gob. Vasco · <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>'}),'bottom-left');
 // La app trabaja con [lat,lng]; MapLibre con [lng,lat]
 const toLngLat = c => [c[1],c[0]];
 function boundsOf(pts){const b=new maplibregl.LngLatBounds(toLngLat(pts[0]),toLngLat(pts[0]));pts.forEach(p=>b.extend(toLngLat(p)));return b}
