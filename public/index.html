@@ -392,7 +392,7 @@ body.navigating .limit{top:calc(env(safe-area-inset-top,0px) + 168px)}
         <button class="btn ghost" id="logout2" type="button" style="font-size:14px;padding:12px">Salir</button>
       </div>
     </div>
-    <p class="small">Radares oficiales de la DGT y de OpenStreetMap, e incidencias de tráfico de la DGT en tiempo real. Los avisos de la comunidad caducan solos (policía 10 min, accidente 1 h, obra 24 h) y se pueden confirmar o negar. No manipules el móvil mientras conduces: mejor que avise el copiloto.</p>
+    <p class="small">Radares oficiales de la DGT y de OpenStreetMap, e incidencias de tráfico oficiales en tiempo real (DGT, Servei Català de Trànsit y Gobierno Vasco). Los avisos de la comunidad caducan solos (policía 10 min, accidente 1 h, obra 24 h) y se pueden confirmar o negar. No manipules el móvil mientras conduces: mejor que avise el copiloto.</p>
   </div>
 </div>
 
@@ -491,7 +491,7 @@ const map = new maplibregl.Map({container:'map',style:'https://api.maptiler.com/
   center:[-1.6458,42.8125],zoom:14,maxPitch:70,attributionControl:false});
 // Rutas y búsqueda: Geoapify (plan gratuito con uso comercial; exige atribución)
 map.addControl(new maplibregl.AttributionControl({compact:true,
-  customAttribution:'Radares e incidencias: <a href="https://nap.dgt.es/" target="_blank" rel="noopener">DGT</a> · <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>'}),'bottom-left');
+  customAttribution:'Radares e incidencias: <a href="https://nap.dgt.es/" target="_blank" rel="noopener">DGT</a>, SCT, Gobierno Vasco · <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a>'}),'bottom-left');
 // La app trabaja con [lat,lng]; MapLibre con [lng,lat]
 const toLngLat = c => [c[1],c[0]];
 function boundsOf(pts){const b=new maplibregl.LngLatBounds(toLngLat(pts[0]),toLngLat(pts[0]));pts.forEach(p=>b.extend(toLngLat(p)));return b}
@@ -611,19 +611,22 @@ const JAM_COLOR = ['#f97316','#f97316','#ef4444','#991b1b'];
 let dgt = [], dgtById = new Map();
 const dgtTitle = i => i.txt.split(' · ')[0];
 const dgtSub = i => [i.txt.split(' · ').slice(1).join(' · '), i.road?i.road+kmTxt(i.km):'', i.town].filter(Boolean).join(' · ');
+const dgtSrc = i => i.src||'DGT';
 const dgtColor = i => i.cat==='jam'?JAM_COLOR[i.jam||1]:(DGT_CAT[i.cat]||DGT_CAT.info).color;
 function dgtVoice(i,d){return `${dgtTitle(i)} a ${Math.round(d/50)*50} metros`}
 function dgtPopup(i){const d=document.createElement('div');d.className='pop';
   const since=i.start?new Date(i.start):null, old=since&&Date.now()-since>2*86400e3;
   d.innerHTML=`<b>${esc(dgtTitle(i))}</b>${esc(dgtSub(i))}<small>${i.km2!=null&&i.km!=null&&i.km2!==i.km?'Tramo'+kmTxt(i.km)+' a'+kmTxt(i.km2)+' · ':''}${
-    since?(old?'Desde el '+since.toLocaleDateString('es-ES'):'Desde las '+since.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))+' · ':''}Fuente: DGT</small>`;
+    since?(old?'Desde el '+since.toLocaleDateString('es-ES'):'Desde las '+since.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))+' · ':''}Fuente: ${esc(dgtSrc(i))}</small>`;
   return d}
 async function pullDgt(){
-  try{const r=await fetch('/api/incidents');if(!r.ok)return;const j=await r.json();
+  try{const r=await fetch('/api/incidents');if(!r.ok){retryDgt();return}const j=await r.json();
     dgt=(j.items||[]).filter(i=>Number.isFinite(i.lat)&&Number.isFinite(i.lng)&&DGT_CAT[i.cat]);
     dgtById=new Map(dgt.map(i=>[String(i.id),i]));drawDgt();if(route)refreshRouteItems();renderList(true)}
-  catch(e){}
+  catch(e){retryDgt()}
 }
+let dgtRetry=null; // si falla, se reintenta una vez a los 30 s (sin esperar los 5 min)
+function retryDgt(){if(!dgtRetry)dgtRetry=setTimeout(()=>{dgtRetry=null;if(hasAccess)pullDgt()},30000)}
 function drawDgt(){whenReady(()=>{const src=map.getSource('dgt');if(!src)return;
   src.setData({type:'FeatureCollection',features:dgt.map(i=>({type:'Feature',properties:{id:String(i.id),cat:i.cat,prio:DGT_CAT[i.cat].prio},geometry:{type:'Point',coordinates:[i.lng,i.lat]}}))})})}
 setInterval(()=>{if(hasAccess)pullDgt()},5*60*1000);
@@ -767,7 +770,7 @@ function renderList(force){
     items.push({id:r.id,k:'rep',t:r.t,name:t.label,ic:t.ic,ts:r.ts,own:isOwn(r),d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:repMeta(r)})});
   const c0=me||{lat:map.getCenter().lat,lng:map.getCenter().lng};
   radars.forEach(r=>{if(Math.abs(r.lat-c0.lat)>.5)return;items.push({id:r.id,k:'rad',t:r.kind==='section'?'sec':'r',name:radarName(r),ic:'gauge',own:false,d:me?dist(me.lat,me.lng,r.lat,r.lng):null,meta:radarMeta(r),ref:r})});
-  dgt.forEach(i=>{if(Math.abs(i.lat-c0.lat)>.5||i.cat==='info')return;items.push({id:'d'+i.id,k:'dgt',t:'',bg:dgtColor(i),name:dgtTitle(i),ic:DGT_CAT[i.cat].ic,own:false,d:me?dist(me.lat,me.lng,i.lat,i.lng):null,meta:(dgtSub(i)||'')+' · DGT',ref:i})});
+  dgt.forEach(i=>{if(Math.abs(i.lat-c0.lat)>.5||i.cat==='info')return;items.push({id:'d'+i.id,k:'dgt',t:'',bg:dgtColor(i),name:dgtTitle(i),ic:DGT_CAT[i.cat].ic,own:false,d:me?dist(me.lat,me.lng,i.lat,i.lng):null,meta:(dgtSub(i)||'')+' · '+dgtSrc(i),ref:i})});
   if(me)items.sort((a,b)=>a.d-b.d);
   else items.sort((a,b)=>(a.k===b.k?(b.ts||0)-(a.ts||0):(a.k==='rep'?-1:1)));
   const shown=items.slice(0,8);
@@ -967,7 +970,7 @@ function renderRouteList(){
   ahead.forEach(it=>{const r=it.ref,isR=it.k==='rad',isD=it.k==='dgt',t=isR||isD?null:TYPES[r.t];
     const li=document.createElement('li');li.className='row';
     const tile=isD?`<div class="tile" style="background:${dgtColor(r)}">${svg(DGT_CAT[r.cat].ic,18)}</div>`:`<div class="tile ${isR?(r.kind==='section'?'sec':''):r.t}">${svg(isR?'gauge':t.ic,18)}</div>`;
-    const name=isD?dgtTitle(r):isR?radarName(r):t.label, meta=isD?(dgtSub(r)||'DGT')+' · DGT':isR?radarMeta(r):repMeta(r);
+    const name=isD?dgtTitle(r):isR?radarName(r):t.label, meta=isD?(dgtSub(r)||dgtSrc(r))+' · '+dgtSrc(r):isR?radarMeta(r):repMeta(r);
     li.innerHTML=`${tile}<div class="tx"><div class="n">${esc(name)}</div><div class="m">${esc(meta)}</div></div><div class="dd">${fmtDist(Math.max(0,it.along-from))}</div>`;
     if(isD||isR)li.style.cursor='pointer',li.onclick=()=>openPopup(r.lat,r.lng,isD?dgtPopup(r):radarPopup(r));
     if(!isR&&isOwn(r)){const b=document.createElement('button');b.type='button';b.className='del';b.setAttribute('aria-label','Eliminar mi aviso');b.innerHTML=svg('trash',18);b.onclick=()=>deleteReport(r.id);li.appendChild(b)}
