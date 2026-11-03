@@ -203,11 +203,16 @@ module.exports = async (req, res) => {
     const items = parseFeed(xml, now, f.v).map((i) => ({ ...i, id: f.key === 'dgt' ? i.id : f.key + '-' + i.id, src: f.src }));
     return { items, updatedAt: tag(xml, 'publicationTime') };
   }));
-  const items = [], sources = {};
+  const items = [], sources = {}, sourcesInfo = {};
   results.forEach((r, k) => {
     const f = FEEDS[k];
-    if (r.status === 'fulfilled') { items.push(...r.value.items); sources[f.key] = r.value.items.length; }
-    else { sources[f.key] = 'error'; console.error('incidents upstream', f.key, r.reason && r.reason.message); }
+    if (r.status === 'fulfilled') {
+      items.push(...r.value.items); sources[f.key] = r.value.items.length;
+      sourcesInfo[f.key] = { name: f.src, count: r.value.items.length, updatedAt: r.value.updatedAt || null };
+    } else {
+      sources[f.key] = 'error'; sourcesInfo[f.key] = { name: f.src, error: String((r.reason && r.reason.message) || 'error').slice(0, 200) };
+      console.error('incidents upstream', f.key, r.reason && r.reason.message);
+    }
   });
   if (results[0].status !== 'fulfilled' && !items.length) {
     res.setHeader('Cache-Control', 'no-store'); // un fallo no se guarda en la CDN: el siguiente usuario vuelve a intentarlo
@@ -217,7 +222,7 @@ module.exports = async (req, res) => {
   const partial = results.some((r) => r.status !== 'fulfilled');
   res.setHeader('Cache-Control', partial ? 'public, max-age=30, s-maxage=60' : `public, max-age=60, s-maxage=${CACHE_S}, stale-while-revalidate=600`);
   const updatedAt = (results[0].status === 'fulfilled' && results[0].value.updatedAt) || new Date(now).toISOString();
-  return res.status(200).json({ source: 'DGT', updatedAt, sources, count: items.length, items });
+  return res.status(200).json({ source: 'DGT', updatedAt, sources, sourcesInfo, count: items.length, items });
 };
 
 module.exports._internals = { parseFeed, parseRecord, parseRecordV1 };
