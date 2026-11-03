@@ -152,6 +152,12 @@ body.navigating .man{right:calc(max(14px,env(safe-area-inset-right,0px)) + 112px
 .info .pop small{display:block;margin-top:2px}
 .pop .vb{display:flex;gap:6px;margin-top:10px}.pop .vb button{margin:0;flex:1}
 .pop .vb .yes{background:var(--gsoft);color:var(--g3)}
+/* Índice de confianza: gravedad y confianza por separado (con texto, no solo color) */
+.tchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tc{font:700 11px var(--font);padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;line-height:1.4}
+.tc::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.tc.s1{background:#eef2f6;color:#475569}.tc.s2{background:#fef3c7;color:#92400e}.tc.s3{background:#ffedd5;color:#c2410c}.tc.s4{background:#fee2e2;color:#b91c1c}
+.tc.ok{background:#dcfce7;color:#166534}.tc.mid{background:#e0f2fe;color:#075985}.tc.low{background:#f1f5f9;color:#475569}.tc.bad{background:#fee2e2;color:#b91c1c}
 /* Pregunta «¿Sigue ahí?» al pasar junto a un aviso */
 .vote{position:fixed;z-index:31;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 118px);width:min(calc(100% - 28px),440px);
   display:flex;align-items:center;gap:10px;background:#fff;border-radius:20px;padding:10px;box-shadow:var(--sh);overflow:hidden}
@@ -657,10 +663,26 @@ const dgtSub = i => [i.txt.split(' · ').slice(1).join(' · '), i.road?i.road+km
 const dgtSrc = i => i.src||'DGT';
 const dgtColor = i => i.cat==='jam'?JAM_COLOR[i.jam||1]:(DGT_CAT[i.cat]||DGT_CAT.info).color;
 function dgtVoice(i,d){return `${dgtTitle(i)} a ${Math.round(d/50)*50} metros`}
+// ---------- Índice de confianza (PRD): la gravedad y la confianza se comunican por separado ----------
+// Gravedad = lo serio que es el hecho. Confianza = cuánto sabemos que es verdad y sigue ahí.
+const SEV_TXT=['','Baja','Media','Alta','Muy alta'];
+const REP_SEV={a:3,o:2}; // polícia y control no son un peligro en sí: solo se muestra la confianza
+function dgtSev(i){const floor={closed:4,accident:3,jam:i.jam>=3?3:2,vehicle:2,weather:2,hazard:2,works:1,lanes:1,info:1}[i.cat]||1;
+  return Math.min(4,Math.max(floor,i.sev|0))}
+function dgtTrust(i,now=Date.now()){const since=i.start?Date.parse(i.start):NaN,days=Number.isFinite(since)?Math.floor((now-since)/86400e3):0;
+  return {k:'ok',t:'Oficial ('+dgtSrc(i)+')'+(days>=7?' · activo desde hace '+days+' días':'')}}
+function repTrust(r,now=Date.now()){const ttl=Math.max(60000,(r.exp-r.ts)||600000),age=now-r.ts;
+  if(r.dn>r.cf)return {k:'bad',t:'Dudoso: '+(r.dn===1?'1 conductor dice':r.dn+' conductores dicen')+' que ya no está'};
+  if(r.cf>=2)return {k:'ok',t:'Confirmado por '+r.cf+' conductores'};
+  if(isStrong(r))return {k:'ok',t:'Confirmado: varios avisos en el mismo sitio'};
+  if(r.cf===1)return {k:'mid',t:'Confirmado por 1 conductor'};
+  if(age<ttl*0.25)return {k:'mid',t:'Aviso reciente, sin confirmar'};
+  return {k:'low',t:'Sin confirmar'}}
+const trustChips=(sev,tr)=>`<span class="tchips">${sev?`<span class="tc s${sev}">Gravedad: ${SEV_TXT[sev]}</span>`:''}<span class="tc ${tr.k}">${esc(tr.t)}</span></span>`;
 function dgtPopup(i){const d=document.createElement('div');d.className='pop';
   const since=i.start?new Date(i.start):null, old=since&&Date.now()-since>2*86400e3;
   d.innerHTML=`<b>${esc(dgtTitle(i))}</b>${esc(dgtSub(i))}<small>${i.km2!=null&&i.km!=null&&i.km2!==i.km?'Tramo'+kmTxt(i.km)+' a'+kmTxt(i.km2)+' · ':''}${
-    since?(old?'Desde el '+since.toLocaleDateString('es-ES'):'Desde las '+since.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))+' · ':''}Fuente: ${esc(dgtSrc(i))}</small>`;
+    since?(old?'Desde el '+since.toLocaleDateString('es-ES'):'Desde las '+since.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}))+' · ':''}Fuente: ${esc(dgtSrc(i))}</small>${trustChips(dgtSev(i),dgtTrust(i))}`;
   return d}
 async function pullDgt(){
   try{const r=await fetch('/api/incidents');if(!r.ok){retryDgt();return}const j=await r.json();
@@ -711,7 +733,7 @@ const myVotes = store.get('rn_votes',{});
 function rememberVote(id,v){myVotes[id]={v,at:Date.now()};
   const cut=Date.now()-2*86400e3;Object.keys(myVotes).forEach(k=>{if(myVotes[k].at<cut)delete myVotes[k]});store.set('rn_votes',myVotes)}
 function popupFor(r){const t=TYPES[r.t];const d=document.createElement('div');d.className='pop';
-  d.innerHTML=`<b>${esc(t.label)}${r.demo?' · DEMO':''}${isStrong(r)?' · confirmado':''}</b><small>Avisado ${esc(repMeta(r))}</small>`;
+  d.innerHTML=`<b>${esc(t.label)}${r.demo?' · DEMO':''}${isStrong(r)?' · confirmado':''}</b><small>Avisado ${esc(repMeta(r))}</small>${trustChips(REP_SEV[r.t]||0,repTrust(r))}`;
   if(isOwn(r)){const b=document.createElement('button');b.type='button';b.className='danger';b.textContent='Eliminar mi aviso';b.onclick=()=>deleteReport(r.id);d.appendChild(b)}
   else{const w=document.createElement('div');w.className='vb';
     const y=document.createElement('button');y.type='button';y.className='yes';y.textContent='✓ Sigue ahí';y.onclick=()=>{closePopup();vote(r,1)};
